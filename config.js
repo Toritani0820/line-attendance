@@ -1,6 +1,6 @@
 const CONFIG = {
     // GAS関連の設定
-    GAS_URL: "https://script.google.com/macros/s/AKfycbzBwNfjxLijXEhuNd3xEyzeg0BT3XcmAX6CXgBnj3GNldnxOkBAXURQL8jc-vrv5FI_/exec",
+    GAS_WEB_APP_URL:"https://script.google.com/macros/s/AKfycbzBwNfjxLijXEhuNd3xEyzeg0BT3XcmAX6CXgBnj3GNldnxOkBAXURQL8jc-vrv5FI_/exec",
     
     // LINE関連の設定
     LIFF_ID: "2010847852-UMICXBtd",
