@@ -1,9 +1,9 @@
 const CONFIG = {
     // GAS関連の設定
-    GAS_URL: "ここにデプロイしたGASのウェブアプリURLを貼り付けてください",
+    GAS_URL: "https://script.google.com/macros/s/AKfycbzBwNfjxLijXEhuNd3xEyzeg0BT3XcmAX6CXgBnj3GNldnxOkBAXURQL8jc-vrv5FI_/exec",
     
     // LINE関連の設定
-    LIFF_ID: "ここにLINE Developersで発行したLIFF_IDを貼り付けてください",
+    LIFF_ID: "2010847852-UMICXBtd",
     
     // 管理者・権限の定義
     ROLES: {
