@@ -1,158 +1,159 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>出欠管理システム</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { font-family: sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
-        .card { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        button { background: #00b900; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        input, select, textarea { padding: 8px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; }
-        .section { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
-        .hidden { display: none; }
-        .status-badge { background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.9em; }
-    </style>
-    <!-- LINE LIFF SDK -->
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <!-- 外部設定ファイル -->
-    <script src="config.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出欠・申請管理アプリ</title>
+  <!-- LIFF SDKの読み込み -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; color: #333; }
+    .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #06c755; color: white; border: none; padding: 10px 15px; border-radius: 4px; width: 100%; font-size: 16px; cursor: pointer; }
+    button:hover { background: #05b14c; }
+    .hidden { display: none; }
+  </style>
 </head>
 <body>
 
-    <div id="appStatus">LINEに接続中...</div>
+  <div class="card">
+    <h2>マイページ</h2>
+    <p id="status-display" style="font-weight: bold;">ステータスを確認中...</p>
+  </div>
 
-    {/* ① 登録データ確認 & 管理者申請セクション（初期表示） */}
-    <div id="registrationSection" class="section hidden">
-        <h2>登録データ確認 & 管理者申請</h2>
-        <div class="card">
-            <p><strong>あなたのLINE ID:</strong> <span id="displayUserId"></span></p>
-            <p><strong>現在の権限ステータス:</strong> <span id="displayRole" class="status-badge">未登録 / 申請中</span></p>
-        </div>
+  <!-- 未登録の場合のみ表示する申請フォーム -->
+  <div id="registration-card" class="card hidden">
+    <h3>利用申請 / 初回管理者設定</h3>
+    <form id="reg-form" onsubmit="submitApplication(event)">
+      <label>申請者氏名:</label>
+      <input type="text" id="applicantName" required placeholder="例: 山田 太郎">
 
-        <div class="card">
-            <h3>新規・権限申請フォーム</h3>
-            <label>申請者名:</label>
-            <input type="text" id="applicantName" placeholder="お名前を入力してください">
+      <label>希望権限:</label>
+      <select id="role">
+        <option value="メンバー">メンバー</option>
+        <option value="世帯主">世帯主</option>
+        <option value="システム管理者">システム管理者（※要キーワード）</option>
+      </select>
 
-            <label>希望権限:</label>
-            <select id="roleSelect">
-                <option value="世帯管理者">世帯管理者</option>
-                <option value="日程管理者">日程管理者</option>
-                <option value="閲覧者">閲覧者</option>
-            </select>
-            
-            <label>申請種別:</label>
-            <select id="applicationType" onchange="toggleHouseholdInput()">
-                <option value="新規世帯">新規世帯</option>
-                <option value="メンバー追加">メンバー追加</option>
-            </select>
-            
-            <div id="householdGroup" class="hidden">
-                <label>世帯ID (必須):</label>
-                <input type="text" id="householdIdInput" placeholder="例: HOUSEHOLD_01">
-            </div>
+      <label>申請種別:</label>
+      <select id="applicationType">
+        <option value="新規世帯">新規世帯</option>
+        <option value="メンバー追加">メンバー追加</option>
+      </select>
 
-            <label>備考:</label>
-            <textarea id="remark" rows="3" placeholder="連絡事項や詳細を記入"></textarea>
-            
-            <button onclick="applyRole()">管理者を申請する</button>
-        </div>
-    </div>
+      <label>対象世帯ID（新規の場合は空欄可）:</label>
+      <input type="text" id="targetHouseholdId" placeholder="例: HH_01">
 
-    {/* 承認済みメンバー向けの予定一覧 & 出欠回答セクション */}
-    <div id="mainContentSection" class="section hidden">
-        <h2>予定一覧 & 出欠回答</h2>
-        <div id="eventList"></div>
-    </div>
+      <label>備考（※初回管理者はキーワードを入力）:</label>
+      <textarea id="remark" rows="3" placeholder="初回管理者の場合は秘密キーワードを入力してください"></textarea>
 
-    <script>
-        let currentUserId = "";
+      <button type="submit">申請を送信する</button>
+    </form>
+  </div>
 
-        window.onload = async function() {
-            try {
-                await liff.init({ liffId: CONFIG.LIFF_ID });
-                
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
+  <script>
+    // デプロイしたGASのウェブアプリURLを指定してください
+    const GAS_WEB_APP_URL = "YOUR_GAS_WEB_APP_URL_HERE";
+    // 自身のLIFF IDを指定してください
+    const LIFF_ID = "YOUR_LIFF_ID_HERE";
 
-                const profile = await liff.getProfile();
-                currentUserId = profile.userId;
-                document.getElementById('displayUserId').innerText = currentUserId;
-                
-                document.getElementById('appStatus').innerText = "";
-                
-                // ユーザーの登録状況・権限を確認して画面を切り替える
-                checkUserStatusAndLoad(currentUserId);
+    let currentLineUserId = "";
 
-            } catch (err) {
-                document.getElementById('appStatus').innerText = "初期化エラー: " + err;
-            }
-        };
-
-        // ユーザーの状態を確認し、未承認なら申請画面、承認済みなら予定画面を表示
-        function checkUserStatusAndLoad(userId) {
-            // 本来はGASからユーザーの権限状態を取得しますが、
-            // 初回や未承認時は「登録データ確認 ＆ 申請画面」を表示するフローにします。
-            document.getElementById('registrationSection').classList.remove('hidden');
-            
-            // 例として、承認されている場合は以下のようにメインコンテンツを表示します
-            // document.getElementById('mainContentSection').classList.remove('hidden');
-            // loadEvents();
+    window.onload = async function() {
+      try {
+        await liff.init({ liffId: LIFF_ID });
+        
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
         }
 
-        function toggleHouseholdInput() {
-            const type = document.getElementById('applicationType').value;
-            const group = document.getElementById('householdGroup');
-            if (type === "メンバー追加") {
-                group.classList.remove('hidden');
-            } else {
-                group.classList.add('hidden');
-                document.getElementById('householdIdInput').value = "";
-            }
+        const profile = await liff.getProfile();
+        currentLineUserId = profile.userId;
+
+        // LINEの表示名を申請者名の初期値としてセット
+        document.getElementById("applicantName").value = profile.displayName;
+
+        // サーバーへステータス問い合わせ
+        await fetchUserStatus(currentLineUserId);
+
+      } catch (err) {
+        console.error("初期化エラー:", err);
+        document.getElementById("status-display").innerText = "読み込みエラーが発生しました。";
+      }
+    };
+
+    /**
+     * ステータス取得処理
+     */
+    async function fetchUserStatus(lineUserId) {
+      const url = `${GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+
+      try {
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === "success") {
+          document.getElementById("status-display").innerText = 
+            `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
+
+          // 「未登録」または「却下」などの場合は申請フォームを表示する
+          if (result.role === "未登録") {
+            document.getElementById("registration-card").classList.remove("hidden");
+          }
+        } else {
+          document.getElementById("status-display").innerText = "ステータスの取得に失敗しました。";
         }
+      } catch (err) {
+        console.error("通信エラー:", err);
+        document.getElementById("status-display").innerText = "通信エラーが発生しました。";
+      }
+    }
 
-        function applyRole() {
-            const applicantName = document.getElementById('applicantName').value;
-            const role = document.getElementById('roleSelect').value;
-            const applicationType = document.getElementById('applicationType').value;
-            const householdId = document.getElementById('householdIdInput').value;
-            const remark = document.getElementById('remark').value;
+    /**
+     * 申請データの送信処理
+     */
+    async function submitApplication(event) {
+      event.preventDefault();
 
-            if (!applicantName.trim()) {
-                alert("申請者名を入力してください。");
-                return;
-            }
+      const payload = {
+        action: "applyRole",
+        lineUserId: currentLineUserId,
+        applicantName: document.getElementById("applicantName").value,
+        role: document.getElementById("role").value,
+        applicationType: document.getElementById("applicationType").value,
+        targetHouseholdId: document.getElementById("targetHouseholdId").value,
+        remark: document.getElementById("remark").value
+      };
 
-            if (applicationType === "メンバー追加" && !householdId.trim()) {
-                alert("メンバー追加の場合は世帯IDの入力が必須です。");
-                return;
-            }
+      try {
+        buttonDisable(true);
+        const response = await fetch(GAS_WEB_APP_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json();
 
-            fetch(CONFIG.GAS_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: "applyRole",
-                    lineUserId: currentUserId,
-                    applicantName: applicantName,
-                    role: role,
-                    applicationType: applicationType,
-                    targetHouseholdId: applicationType === "新規世帯" ? "" : householdId,
-                    remark: remark
-                })
-            })
-            .then(() => {
-                alert("管理者申請を送信しました。管理者の承認をお待ちください。");
-                location.reload();
-            })
-            .catch(err => {
-                alert("申請エラー: " + err);
-            });
+        if (result.status === "success") {
+          alert(result.message);
+          // 画面を再読み込みして最新ステータスを反映
+          location.reload();
+        } else {
+          alert("エラー: " + result.message);
+          buttonDisable(false);
         }
-    </script>
+      } catch (err) {
+        console.error("送信エラー:", err);
+        alert("送信中に通信エラーが発生しました。");
+        buttonDisable(false);
+      }
+    }
+
+    function buttonDisable(disabled) {
+      document.querySelector("button[type='submit']").disabled = disabled;
+    }
+  </script>
+
 </body>
 </html>
