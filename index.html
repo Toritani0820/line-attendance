@@ -24,31 +24,43 @@
 
   <!-- 未登録の場合のみ表示する申請フォーム -->
   <div id="registration-card" class="card hidden">
-    <h3>利用申請 / 初回管理者設定</h3>
+    <h3>利用申請 / 管理者・権限設定</h3>
     <form id="reg-form" onsubmit="submitApplication(event)">
+      
+      <!-- 共通: 申請者氏名 -->
       <label>申請者氏名:</label>
       <input type="text" id="applicantName" required placeholder="例: 山田 太郎">
 
+      <!-- 共通: 希望権限 -->
       <label>希望権限:</label>
-      <select id="role">
-        <option value="システム管理者">システム管理者（※初回要キーワード）</option>
-        <option value="運用管理者">運用管理者</option>
-        <option value="世帯管理者">世帯管理者</option>
-        <option value="予定回答者">予定回答者</option>
-        <option value="閲覧者">閲覧者</option>
-      </select>
+      <select id="role" onchange="handleRoleOrTypeChange()"></select>
 
-      <label>申請種別:</label>
-      <select id="applicationType">
-        <option value="新規世帯">新規世帯</option>
-        <option value="メンバー追加">メンバー追加</option>
-      </select>
+      <!-- 条件付き: 申請種別（世帯管理者の場合のみ使用） -->
+      <div id="field-applicationType" class="hidden">
+        <label>申請種別:</label>
+        <select id="applicationType" onchange="handleRoleOrTypeChange()">
+          <option value="新規世帯">新規世帯</option>
+          <option value="メンバー追加">メンバー追加</option>
+        </select>
+      </div>
 
-      <label>対象世帯ID（新規の場合は空欄可）:</label>
-      <input type="text" id="targetHouseholdId" placeholder="例: HH_01">
+      <!-- 条件付き: 対象世帯ID -->
+      <div id="field-targetHouseholdId" class="hidden">
+        <label>対象世帯ID:</label>
+        <input type="text" id="targetHouseholdId" placeholder="例: HH_01">
+      </div>
 
-      <label>備考（※初回管理者はキーワードを入力）:</label>
-      <textarea id="remark" rows="3" placeholder="初回管理者の場合は秘密キーワードを入力してください"></textarea>
+      <!-- 条件付き: 登録用キーワード（システム管理者の場合） -->
+      <div id="field-keyword" class="hidden">
+        <label>登録用キーワード:</label>
+        <input type="password" id="adminKeyword" placeholder="システム管理者登録キーワードを入力">
+      </div>
+
+      <!-- 条件付き: 備考 -->
+      <div id="field-remark" class="hidden">
+        <label>備考:</label>
+        <textarea id="remark" rows="3" placeholder="備考事項があれば入力してください"></textarea>
+      </div>
 
       <button type="submit">申請を送信する</button>
     </form>
