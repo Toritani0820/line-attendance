@@ -2,61 +2,138 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <title>出欠管理システム</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>連携テスト</title>
-    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
+        .card { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        button { background: #00b900; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+        input, select { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        .section { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
+    </style>
 </head>
-<body style="padding: 20px;">
-    <h2>システム連携テスト</h2>
-    <p id="status">LIFF初期化中...</p>
-    <button id="sendBtn" style="display:none; padding:10px; background:#00B900; color:#fff; border:none;">
-        GASへテストデータを送信
-    </button>
+<body>
+
+    <h2>予定一覧 & 出欠回答</h2>
+    <div id="status">読み込み中...</div>
+    <div id="eventList"></div>
+
+    <div class="section">
+        <h2>管理者権限の申請</h2>
+        <div class="card">
+            <label>希望権限:</label>
+            <select id="roleSelect">
+                <option value="世帯管理者">世帯管理者</option>
+                <option value="日程管理者">日程管理者</option>
+                <option value="閲覧者">閲覧者</option>
+            </select>
+            
+            <label>対象世帯ID (手入力):</label>
+            <input type="text" id="householdIdInput" placeholder="例: HOUSEHOLD_01">
+            
+            <button onclick="applyRole()">管理者を申請する</button>
+        </div>
+    </div>
 
     <script>
-        const LIFF_ID = "2010847852-UMICXBtd"; 
-        // ▼ GASでデプロイした「ウェブアプリのURL」に書き換える
-        const GAS_URL = "https://script.google.com/macros/s/AKfycbzBwNfjxLijXEhuNd3xEyzeg0BT3XcmAX6CXgBnj3GNldnxOkBAXURQL8jc-vrv5FI_/exec"; 
+        const GAS_URL = "ここにデプロイしたGASのウェブアプリURLを貼り付けてください";
+        const currentUserId = "TEST_USER_001"; // 本番はLIFF SDKから取得したLINE IDを利用
 
-        let currentUserId = "";
+        // ページ読み込み時に予定を取得
+        window.onload = function() {
+            fetch(`${GAS_URL}?action=getEvents&userId=${currentUserId}`)
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('status').innerText = "";
+                const list = document.getElementById('eventList');
+                if(data.events && data.events.length > 0) {
+                    data.events.forEach(ev => {
+                        let div = document.createElement('div');
+                        div.className = 'card';
+                        div.innerHTML = `
+                            <strong>${ev.eventTitle}</strong> (${ev.eventCategory})<br>
+                            場所: ${ev.location || '未設定'}<br>
+                            日時: ${ev.startDateTime}<br>
+                            <hr>
+                            <label>出欠:</label>
+                            <select id="status_${ev.eventId}">
+                                <option value="参加">参加</option>
+                                <option value="欠席">欠席</option>
+                                <option value="一部参加">一部参加 (要コメント)</option>
+                                <option value="保留">保留 (要コメント)</option>
+                            </select>
+                            <input type="text" id="comment_${ev.eventId}" placeholder="コメント・備考（一部参加/保留時は必須）">
+                            <button onclick="submitAttendance('${ev.eventId}')">送信する</button>
+                        `;
+                        list.appendChild(div);
+                    });
+                } else {
+                    list.innerText = "表示可能な予定はありません。";
+                }
+            })
+            .catch(err => {
+                document.getElementById('status').innerText = "データの取得に失敗しました: " + err;
+            });
+        };
 
-        window.addEventListener('DOMContentLoaded', () => {
-            liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true })
-                .then(() => {
-                    if (!liff.isLoggedIn()) {
-                        liff.login();
-                    } else {
-                        liff.getProfile().then(profile => {
-                            currentUserId = profile.userId;
-                            document.getElementById('status').innerText = `準備完了 (ID: ${currentUserId})`;
-                            document.getElementById('sendBtn').style.display = "block";
-                        });
-                    }
-                });
-        });
+        // 出欠送信処理
+        function submitAttendance(eventId) {
+            const status = document.getElementById(`status_${eventId}`).value;
+            const comment = document.getElementById(`comment_${eventId}`).value;
 
-       // ボタンを押した時の送信処理
-        document.getElementById('sendBtn').addEventListener('click', () => {
-            document.getElementById('status').innerText = "送信中...";
-            
+            if ((status === "一部参加" || status === "保留") && !comment.trim()) {
+                alert("「一部参加」または「保留」の場合はコメントの入力が必須です。");
+                return;
+            }
+
             fetch(GAS_URL, {
                 method: 'POST',
-                mode: 'no-cors', // ★ここを追加（CORSエラーを回避する設定）
-                headers: { 'Content-Type': 'application/json' }, 
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    userId: currentUserId,
-                    message: "GitHub Pagesからのテスト送信成功！"
+                    action: "submitAttendance",
+                    eventId: eventId,
+                    lineUserId: currentUserId,
+                    attendanceStatus: status,
+                    comment: comment
                 })
             })
             .then(() => {
-                // ※ mode: 'no-cors' の仕様上、レスポンスの中身（jsonなど）は読み取れませんが、
-                //   エラーなくここまで到達すれば送信は成功しています。
-                document.getElementById('status').innerText = "送信完了しました！スプレッドシートを確認してください。";
+                alert("出欠を送信しました！");
             })
-            .catch(error => {
-                document.getElementById('status').innerText = "送信エラー: " + error;
+            .catch(err => {
+                alert("送信エラー: " + err);
             });
-        });
+        }
+
+        // 管理者申請処理
+        function applyRole() {
+            const role = document.getElementById('roleSelect').value;
+            const householdId = document.getElementById('householdIdInput').value;
+
+            if (!householdId.trim()) {
+                alert("世帯IDを入力してください。");
+                return;
+            }
+
+            fetch(GAS_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: "applyRole",
+                    lineUserId: currentUserId,
+                    role: role,
+                    targetHouseholdId: householdId
+                })
+            })
+            .then(() => {
+                alert("管理者申請を送信しました。管理者の承認をお待ちください。");
+            })
+            .catch(err => {
+                alert("申請エラー: " + err);
+            });
+        }
     </script>
 </body>
 </html>
