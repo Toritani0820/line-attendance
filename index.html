@@ -12,11 +12,15 @@
         .section { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
         .hidden { display: none; }
     </style>
+    <!-- 1. LINE LIFF SDKの読み込み -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- 2. 外部設定ファイルの読み込み -->
+    <script src="config.js"></script>
 </head>
 <body>
 
     <h2>予定一覧 & 出欠回答</h2>
-    <div id="status">読み込み中...</div>
+    <div id="status">LINEに接続中...</div>
     <div id="eventList"></div>
 
     <div class="section">
@@ -51,8 +55,31 @@
     </div>
 
     <script>
-        const GAS_URL = "ここにデプロイしたGASのウェブアプリURLを貼り付けてください";
-        const currentUserId = "TEST_USER_001"; // 本番はLIFF SDKから取得したLINE IDを利用
+        let currentUserId = "";
+
+        // ページ読み込み時にLIFFを初期化し、ログインユーザーのIDを自動取得
+        window.onload = async function() {
+            try {
+                await liff.init({ liffId: CONFIG.LIFF_ID });
+                
+                if (!liff.isLoggedIn()) {
+                    liff.login();
+                    return;
+                }
+
+                // ログインアカウントからプロフィール（LINE User ID）を取得
+                const profile = await liff.getProfile();
+                currentUserId = profile.userId;
+                
+                document.getElementById('status').innerText = "";
+                
+                // 予定一覧の読み込みを実行
+                loadEvents();
+
+            } catch (err) {
+                document.getElementById('status').innerText = "LIFF初期化エラー: " + err;
+            }
+        };
 
         // 申請種別による世帯ID欄の表示切替
         function toggleHouseholdInput() {
@@ -62,16 +89,15 @@
                 group.classList.remove('hidden');
             } else {
                 group.classList.add('hidden');
-                document.getElementById('householdIdInput').value = ""; // クリア
+                document.getElementById('householdIdInput').value = "";
             }
         }
 
-        // ページ読み込み時に予定を取得
-        window.onload = function() {
-            fetch(`${GAS_URL}?action=getEvents&userId=${currentUserId}`)
+        // 予定一覧の取得
+        function loadEvents() {
+            fetch(`${CONFIG.GAS_URL}?action=getEvents&userId=${currentUserId}`)
             .then(res => res.json())
             .then(data => {
-                document.getElementById('status').innerText = "";
                 const list = document.getElementById('eventList');
                 if(data.status === "success" && data.events && data.events.length > 0) {
                     data.events.forEach(ev => {
@@ -101,7 +127,7 @@
             .catch(err => {
                 document.getElementById('status').innerText = "データの取得に失敗しました: " + err;
             });
-        };
+        }
 
         // 出欠送信処理
         function submitAttendance(eventId) {
@@ -113,7 +139,7 @@
                 return;
             }
 
-            fetch(GAS_URL, {
+            fetch(CONFIG.GAS_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
@@ -151,7 +177,7 @@
                 return;
             }
 
-            fetch(GAS_URL, {
+            fetch(CONFIG.GAS_URL, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/json' },
@@ -161,7 +187,7 @@
                     applicantName: applicantName,
                     role: role,
                     applicationType: applicationType,
-                    targetHouseholdId: applicationType === "新規則世帯" ? "" : householdId,
+                    targetHouseholdId: applicationType === "新規世帯" ? "" : householdId,
                     remark: remark
                 })
             })
