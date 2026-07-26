@@ -2,6 +2,9 @@ let currentLineUserId = "";
 
 window.onload = async function() {
   try {
+    // config.jsで定義された権限からセレクトボックスを動的生成
+    initRoleSelect();
+
     // config.jsで定義した設定値を使用
     await liff.init({ liffId: CONFIG.LIFF_ID });
     
@@ -27,6 +30,78 @@ window.onload = async function() {
     document.getElementById("status-display").innerText = "読み込みエラーが発生しました。";
   }
 };
+
+/**
+ * config.jsの定義から希望権限のセレクトボックスを生成する
+ */
+function initRoleSelect() {
+  const roleSelect = document.getElementById("role");
+  if (!roleSelect || !CONFIG.ROLES) return;
+
+  roleSelect.innerHTML = "";
+
+  for (const [key, value] of Object.entries(CONFIG.ROLES)) {
+    // 【利用禁止】は新規申請の選択肢から除外する
+    if (value === CONFIG.ROLES.BANNED) continue;
+
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    roleSelect.appendChild(option);
+  }
+
+  // 初期ロード時にも表示制御を適用
+  handleRoleOrTypeChange();
+}
+
+/**
+ * 希望権限および申請種別の選択に応じて、フォーム項目の表示/非表示を制御する
+ */
+function handleRoleOrTypeChange() {
+  const role = document.getElementById("role").value;
+  const appTypeSelect = document.getElementById("applicationType");
+  const appType = appTypeSelect ? appTypeSelect.value : "";
+
+  // 各フィールドの要素
+  const fieldAppType = document.getElementById("field-applicationType");
+  const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
+  const fieldKeyword = document.getElementById("field-keyword");
+  const fieldRemark = document.getElementById("field-remark");
+
+  // いったんすべて非表示にする
+  fieldAppType.classList.add("hidden");
+  fieldTargetHousehold.classList.add("hidden");
+  fieldKeyword.classList.add("hidden");
+  fieldRemark.classList.add("hidden");
+
+  // 権限ごとの表示制御
+  if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
+    // ① システム管理者: 登録用キーワード、備考
+    fieldKeyword.classList.remove("hidden");
+    fieldRemark.classList.remove("hidden");
+  } 
+  else if (role === CONFIG.ROLES.OPERATION_ADMIN) {
+    // ② 運用管理者: 備考のみ
+    fieldRemark.classList.remove("hidden");
+  } 
+  else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
+    // ③ 世帯管理者: 申請種別を表示し、その内容で分岐
+    fieldAppType.classList.remove("hidden");
+    if (appType === "新規世帯") {
+      // 新規世帯: 備考のみ
+      fieldRemark.classList.remove("hidden");
+    } else if (appType === "メンバー追加") {
+      // メンバー追加: 対象世帯ID・備考
+      fieldTargetHousehold.classList.remove("hidden");
+      fieldRemark.classList.remove("hidden");
+    }
+  } 
+  else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+    // ④ 予定回答者・閲覧者: 対象世帯ID・備考
+    fieldTargetHousehold.classList.remove("hidden");
+    fieldRemark.classList.remove("hidden");
+  }
+}
 
 /**
  * ステータス取得処理
@@ -61,14 +136,22 @@ async function fetchUserStatus(lineUserId) {
 async function submitApplication(event) {
   event.preventDefault();
 
+  const role = document.getElementById("role").value;
+  const appTypeSelect = document.getElementById("applicationType");
+  const targetHouseholdInput = document.getElementById("targetHouseholdId");
+  const keywordInput = document.getElementById("adminKeyword");
+  const remarkInput = document.getElementById("remark");
+
+  // バックエンドへ送信するペイロードの構築
   const payload = {
     action: "applyRole",
     lineUserId: currentLineUserId,
     applicantName: document.getElementById("applicantName").value,
-    role: document.getElementById("role").value,
-    applicationType: document.getElementById("applicationType").value,
-    targetHouseholdId: document.getElementById("targetHouseholdId").value,
-    remark: document.getElementById("remark").value
+    role: role,
+    applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) ? appTypeSelect.value : "",
+    targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value : "",
+    // システム管理者の場合はキーワードをremark（または専用プロパティ）として送る
+    remark: (role === CONFIG.ROLES.SYSTEM_ADMIN) ? keywordInput.value : (remarkInput ? remarkInput.value : "")
   };
 
   try {
