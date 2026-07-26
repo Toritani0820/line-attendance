@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LIFF App</title>
+    <!-- LIFF SDKの読み込み -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body style="font-family: sans-serif; padding: 20px;">
+    <h2 style="font-weight: bold; color: #00B900;">LIFF Initialization</h2>
+    <p id="status" style="font-weight: bold;">1. LIFFの初期化を開始します...</p>
+    
+    <div id="content" style="display: none;">
+        <p>LINE User ID: <span id="uid"></span></p>
+    </div>
+
+    <script>
+        // ▼ 正しいLIFF IDに書き換えてください
+        const LIFF_ID = "2010847852-UMICXBtd"; 
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            const statusEl = document.getElementById('status');
+            
+            statusEl.innerText = "2. liff.initを実行します...";
+            
+            // LIFF初期化
+            liff.init({
+                liffId: LIFF_ID,
+                withLoginOnExternalBrowser: true // LINE外ブラウザでもログイン画面へ誘導
+            }).then(() => {
+                statusEl.innerText = "3. 初期化成功。ログイン状態を確認中...";
+                
+                if (!liff.isLoggedIn()) {
+                    statusEl.innerText = "4. 未ログインです。ログイン画面へ移動します...";
+                    liff.login(); // ログイン要求
+                } else {
+                    statusEl.innerText = "5. ログイン済。プロフィールを取得中...";
+                    
+                    liff.getProfile().then(profile => {
+                        statusEl.innerText = "6. 取得完了！";
+                        document.getElementById('content').style.display = 'block';
+                        document.getElementById('uid').innerText = profile.userId;
+                    }).catch((err) => {
+                        statusEl.innerText = "プロフィール取得エラー: " + err.message;
+                    });
+                }
+            }).catch((err) => {
+                statusEl.innerText = "初期化エラー: " + err.message;
+            });
+        });
+    </script>
+</body>
+</html>
