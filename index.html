@@ -3,175 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出欠管理アプリ</title>
-    <!-- LINE LIFF SDK -->
+    <title>連携テスト</title>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <!-- Firebase SDK (Compat版) -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    
-    <style>
-        body { font-family: sans-serif; padding: 20px; background-color: #f7f7f7; color: #333; max-width: 600px; margin: 0 auto; }
-        .card { background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h2 { color: #00B900; margin-top: 0; }
-        label { display: block; margin-top: 10px; font-weight: bold; }
-        select, textarea, button { width: 100%; padding: 10px; margin-top: 5px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-        textarea { resize: vertical; height: 80px; }
-        button { background-color: #00B900; color: white; border: none; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 15px; }
-        button:hover { background-color: #009900; }
-        .error { color: red; font-size: 14px; margin-top: 5px; display: none; }
-    </style>
 </head>
-<body>
-
-    <div class="card">
-        <h2>出欠確認</h2>
-        <p id="user-info">ユーザー情報を読み込み中...</p>
-    </div>
-
-    <div id="event-container">
-        <!-- イベントと出欠入力欄がここに動的に生成されます -->
-    </div>
+<body style="padding: 20px;">
+    <h2>システム連携テスト</h2>
+    <p id="status">LIFF初期化中...</p>
+    <button id="sendBtn" style="display:none; padding:10px; background:#00B900; color:#fff; border:none;">
+        GASへテストデータを送信
+    </button>
 
     <script>
-        // ▼ 1. 各種設定（ご自身の環境のID・設定に書き換えてください）
-        const LIFF_ID = "2010847852-UMICXBtd";
-        
-        const firebaseConfig = {
-            apiKey: "YOUR_FIREBASE_API_KEY",
-            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-            projectId: "YOUR_PROJECT_ID",
-            storageBucket: "YOUR_PROJECT_ID.appspot.com",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-            appId: "YOUR_APP_ID"
-        };
+        const LIFF_ID = "2010847852-UMICXBtd"; 
+        // ▼ GASでデプロイした「ウェブアプリのURL」に書き換える
+        const GAS_URL = "YOUR_GAS_WEB_APP_URL"; 
 
-        // Firebase初期化
-        if (!firebase.apps.length) {
-            firebase.initializeApp(firebaseConfig);
-        }
-        const db = firebase.firestore();
+        let currentUserId = "";
 
-        let lineUserId = "";
-
-        // 2. 起動時の初期化処理
         window.addEventListener('DOMContentLoaded', () => {
-            liff.init({
-                liffId: LIFF_ID,
-                withLoginOnExternalBrowser: true
-            }).then(() => {
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                } else {
-                    liff.getProfile().then(profile => {
-                        lineUserId = profile.userId;
-                        document.getElementById('user-info').innerText = `ログイン中: ${profile.displayName} 様`;
-                        loadEvents(); // イベント一覧の読み込み
-                    }).catch(err => {
-                        console.error("プロフィール取得エラー", err);
-                    });
-                }
-            }).catch(err => {
-                document.getElementById('user-info').innerText = "LIFF初期化エラー: " + err.message;
-            });
+            liff.init({ liffId: LIFF_ID, withLoginOnExternalBrowser: true })
+                .then(() => {
+                    if (!liff.isLoggedIn()) {
+                        liff.login();
+                    } else {
+                        liff.getProfile().then(profile => {
+                            currentUserId = profile.userId;
+                            document.getElementById('status').innerText = `準備完了 (ID: ${currentUserId})`;
+                            document.getElementById('sendBtn').style.display = "block";
+                        });
+                    }
+                });
         });
 
-        // 3. 今日の日付以降のイベントをFirestoreから取得して表示
-        async function loadEvents() {
-            const container = document.getElementById('event-container');
-            container.innerHTML = "<p>イベント情報を取得中...</p>";
-
-            // システムの今日の日付文字列 (YYYY-MM-DD) を取得
-            const todayStr = new Date().toISOString().split('T')[0];
-
-            try {
-                // settings/event_dates コレクションから当日以降の日付を取得
-                const snapshot = await db.collection("settings/event_dates/dates") // ※実際のコレクション構造に合わせて調整してください
-                    .where("date", ">=", todayStr)
-                    .orderBy("date", "asc")
-                    .get();
-
-                if (snapshot.empty) {
-                    container.innerHTML = "<div class='card'><p>現在、参加可能な予定はありません。</p></div>";
-                    return;
-                }
-
-                container.innerHTML = "";
-                snapshot.forEach(doc => {
-                    const eventData = doc.data();
-                    const eventId = doc.id;
-                    const eventDate = eventData.date; // 例: "2026-11-08"
-
-                    // イベントごとの入力フォームカードを生成
-                    const card = document.createElement('div');
-                    card.className = 'card';
-                    card.innerHTML = `
-                        <h3>📅 ${eventDate}</h3>
-                        <label>出欠ステータス:</label>
-                        <select id="status_${eventId}" onchange="toggleCommentRequirement('${eventId}')">
-                            <option value="参加">参加</option>
-                            <option value="欠席">欠席</option>
-                            <option value="一部参加">一部参加（要コメント）</option>
-                            <option value="保留">保留（要コメント）</option>
-                        </select>
-                        
-                        <label>コメント <span id="req_${eventId}" style="color:red; display:none;">*必須</span>:</label>
-                        <textarea id="comment_${eventId}" placeholder="備考や理由を入力してください"></textarea>
-                        <div id="error_${eventId}" class="error">「一部参加」または「保留」の場合はコメントの入力が必須です。</div>
-
-                        <button onclick="submitAttendance('${eventId}')">送信する</button>
-                    `;
-                    container.appendChild(card);
-                });
-
-            } catch (err) {
-                console.error("イベント読み込みエラー:", err);
-                container.innerHTML = "<p>イベント情報の読み込みに失敗しました。</p>";
-            }
-        }
-
-        // 4. ステータス変更時にコメント必須表示を切り替えるバリデーション補助
-        function toggleCommentRequirement(eventId) {
-            const status = document.getElementById(`status_${eventId}`).value;
-            const reqLabel = document.getElementById(`req_${eventId}`);
-            if (status === "一部参加" || status === "保留") {
-                reqLabel.style.display = "inline";
-            } else {
-                reqLabel.style.display = "none";
-                document.getElementById(`error_${eventId}`).style.display = "none";
-            }
-        }
-
-        // 5. 出欠データの送信処理
-        async function submitAttendance(eventId) {
-            const status = document.getElementById(`status_${eventId}`).value;
-            const comment = document.getElementById(`comment_${eventId}`).value.trim();
-            const errorDiv = document.getElementById(`error_${eventId}`);
-
-            // バリデーション：「一部参加」または「保留」のときはコメントを必須にする
-            if ((status === "一部参加" || status === "保留") && comment === "") {
-                errorDiv.style.display = "block";
-                return;
-            } else {
-                errorDiv.style.display = "none";
-            }
-
-            try {
-                // Firestoreへ保存（ドキュメントIDに LINEのUserID と イベントID を組み合わせるなど）
-                await db.collection("attendances").doc(`${lineUserId}_${eventId}`).set({
-                    userId: lineUserId,
-                    eventId: eventId,
-                    status: status,
-                    comment: comment,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                alert("出欠を受け付けました！");
-            } catch (err) {
-                console.error("送信エラー:", err);
-                alert("送信に失敗しました。もう一度お試しください。");
-            }
-        }
+        // ボタンを押した時の送信処理
+        document.getElementById('sendBtn').addEventListener('click', () => {
+            document.getElementById('status').innerText = "送信中...";
+            
+            fetch(GAS_URL, {
+                method: 'POST',
+                // ※CORSエラー回避のため 'text/plain' を指定することが多いですが、まずは標準のjsonでテストします
+                headers: { 'Content-Type': 'application/json' }, 
+                body: JSON.stringify({
+                    userId: currentUserId,
+                    message: "GitHub Pagesからのテスト送信成功！"
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('status').innerText = "送信成功！スプレッドシートを確認してください。";
+            })
+            .catch(error => {
+                document.getElementById('status').innerText = "送信エラー: " + error;
+            });
+        });
     </script>
 </body>
 </html>
