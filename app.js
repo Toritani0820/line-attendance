@@ -5,7 +5,7 @@ window.onload = async function() {
     // config.jsで定義された権限からセレクトボックスを動的生成
     initRoleSelect();
 
-    // config.jsで定義した設定値を使用
+    // config.jsで設定したLIFF IDを使用
     await liff.init({ liffId: CONFIG.LIFF_ID });
     
     if (!liff.isLoggedIn()) {
@@ -66,40 +66,27 @@ function handleRoleOrTypeChange() {
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
   const fieldKeyword = document.getElementById("field-keyword");
-  const fieldRemark = document.getElementById("field-remark");
 
   // いったんすべて非表示にする
   fieldAppType.classList.add("hidden");
   fieldTargetHousehold.classList.add("hidden");
   fieldKeyword.classList.add("hidden");
-  fieldRemark.classList.add("hidden");
 
   // 権限ごとの表示制御
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    // ① システム管理者: 登録用キーワード、備考
+    // ① システム管理者: 登録用キーワードを表示
     fieldKeyword.classList.remove("hidden");
-    fieldRemark.classList.remove("hidden");
-  } 
-  else if (role === CONFIG.ROLES.OPERATION_ADMIN) {
-    // ② 運用管理者: 備考のみ
-    fieldRemark.classList.remove("hidden");
-  } 
+  }
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     // ③ 世帯管理者: 申請種別を表示し、その内容で分岐
     fieldAppType.classList.remove("hidden");
-    if (appType === "新規世帯") {
-      // 新規世帯: 備考のみ
-      fieldRemark.classList.remove("hidden");
-    } else if (appType === "メンバー追加") {
-      // メンバー追加: 対象世帯ID・備考
+    if (appType === "メンバー追加") {
       fieldTargetHousehold.classList.remove("hidden");
-      fieldRemark.classList.remove("hidden");
     }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
-    // ④ 予定回答者・閲覧者: 対象世帯ID・備考
+    // ④ 予定回答者・閲覧者: 対象世帯IDのみ
     fieldTargetHousehold.classList.remove("hidden");
-    fieldRemark.classList.remove("hidden");
   }
 }
 
@@ -140,7 +127,6 @@ async function submitApplication(event) {
   const appTypeSelect = document.getElementById("applicationType");
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
   const keywordInput = document.getElementById("adminKeyword");
-  const remarkInput = document.getElementById("remark");
 
   // バックエンドへ送信するペイロードの構築
   const payload = {
@@ -150,8 +136,7 @@ async function submitApplication(event) {
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value : "",
-    // システム管理者の場合はキーワードをremark（または専用プロパティ）として送る
-    remark: (role === CONFIG.ROLES.SYSTEM_ADMIN) ? keywordInput.value : (remarkInput ? remarkInput.value : "")
+    keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN) ? keywordInput.value : ""
   };
 
   try {
