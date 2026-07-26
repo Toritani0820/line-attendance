@@ -11,21 +11,27 @@
         input, select, textarea { padding: 8px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; }
         .section { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
         .hidden { display: none; }
+        .status-badge { background: #e0e0e0; padding: 4px 8px; border-radius: 4px; font-size: 0.9em; }
     </style>
-    <!-- 1. LINE LIFF SDKの読み込み -->
+    <!-- LINE LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <!-- 2. 外部設定ファイルの読み込み -->
+    <!-- 外部設定ファイル -->
     <script src="config.js"></script>
 </head>
 <body>
 
-    <h2>予定一覧 & 出欠回答</h2>
-    <div id="status">LINEに接続中...</div>
-    <div id="eventList"></div>
+    <div id="appStatus">LINEに接続中...</div>
 
-    <div class="section">
-        <h2>管理者権限の申請</h2>
+    {/* ① 登録データ確認 & 管理者申請セクション（初期表示） */}
+    <div id="registrationSection" class="section hidden">
+        <h2>登録データ確認 & 管理者申請</h2>
         <div class="card">
+            <p><strong>あなたのLINE ID:</strong> <span id="displayUserId"></span></p>
+            <p><strong>現在の権限ステータス:</strong> <span id="displayRole" class="status-badge">未登録 / 申請中</span></p>
+        </div>
+
+        <div class="card">
+            <h3>新規・権限申請フォーム</h3>
             <label>申請者名:</label>
             <input type="text" id="applicantName" placeholder="お名前を入力してください">
 
@@ -54,10 +60,15 @@
         </div>
     </div>
 
+    {/* 承認済みメンバー向けの予定一覧 & 出欠回答セクション */}
+    <div id="mainContentSection" class="section hidden">
+        <h2>予定一覧 & 出欠回答</h2>
+        <div id="eventList"></div>
+    </div>
+
     <script>
         let currentUserId = "";
 
-        // ページ読み込み時にLIFFを初期化し、ログインユーザーのIDを自動取得
         window.onload = async function() {
             try {
                 await liff.init({ liffId: CONFIG.LIFF_ID });
@@ -67,21 +78,31 @@
                     return;
                 }
 
-                // ログインアカウントからプロフィール（LINE User ID）を取得
                 const profile = await liff.getProfile();
                 currentUserId = profile.userId;
+                document.getElementById('displayUserId').innerText = currentUserId;
                 
-                document.getElementById('status').innerText = "";
+                document.getElementById('appStatus').innerText = "";
                 
-                // 予定一覧の読み込みを実行
-                loadEvents();
+                // ユーザーの登録状況・権限を確認して画面を切り替える
+                checkUserStatusAndLoad(currentUserId);
 
             } catch (err) {
-                document.getElementById('status').innerText = "LIFF初期化エラー: " + err;
+                document.getElementById('appStatus').innerText = "初期化エラー: " + err;
             }
         };
 
-        // 申請種別による世帯ID欄の表示切替
+        // ユーザーの状態を確認し、未承認なら申請画面、承認済みなら予定画面を表示
+        function checkUserStatusAndLoad(userId) {
+            // 本来はGASからユーザーの権限状態を取得しますが、
+            // 初回や未承認時は「登録データ確認 ＆ 申請画面」を表示するフローにします。
+            document.getElementById('registrationSection').classList.remove('hidden');
+            
+            // 例として、承認されている場合は以下のようにメインコンテンツを表示します
+            // document.getElementById('mainContentSection').classList.remove('hidden');
+            // loadEvents();
+        }
+
         function toggleHouseholdInput() {
             const type = document.getElementById('applicationType').value;
             const group = document.getElementById('householdGroup');
@@ -93,73 +114,6 @@
             }
         }
 
-        // 予定一覧の取得
-        function loadEvents() {
-            fetch(`${CONFIG.GAS_URL}?action=getEvents&userId=${currentUserId}`)
-            .then(res => res.json())
-            .then(data => {
-                const list = document.getElementById('eventList');
-                if(data.status === "success" && data.events && data.events.length > 0) {
-                    data.events.forEach(ev => {
-                        let div = document.createElement('div');
-                        div.className = 'card';
-                        div.innerHTML = `
-                            <strong>${ev.eventTitle}</strong> (${ev.eventCategory})<br>
-                            場所: ${ev.location || '未設定'}<br>
-                            日時: ${ev.startDateTime}<br>
-                            <hr>
-                            <label>出欠:</label>
-                            <select id="status_${ev.eventId}">
-                                <option value="参加">参加</option>
-                                <option value="欠席">欠席</option>
-                                <option value="一部参加">一部参加 (要コメント)</option>
-                                <option value="保留">保留 (要コメント)</option>
-                            </select>
-                            <input type="text" id="comment_${ev.eventId}" placeholder="コメント・備考（一部参加/保留時は必須）">
-                            <button onclick="submitAttendance('${ev.eventId}')">送信する</button>
-                        `;
-                        list.appendChild(div);
-                    });
-                } else {
-                    list.innerText = "表示可能な予定はありません。";
-                }
-            })
-            .catch(err => {
-                document.getElementById('status').innerText = "データの取得に失敗しました: " + err;
-            });
-        }
-
-        // 出欠送信処理
-        function submitAttendance(eventId) {
-            const status = document.getElementById(`status_${eventId}`).value;
-            const comment = document.getElementById(`comment_${eventId}`).value;
-
-            if ((status === "一部参加" || status === "保留") && !comment.trim()) {
-                alert("「一部参加」または「保留」の場合はコメントの入力が必須です。");
-                return;
-            }
-
-            fetch(CONFIG.GAS_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: "submitAttendance",
-                    eventId: eventId,
-                    lineUserId: currentUserId,
-                    attendanceStatus: status,
-                    comment: comment
-                })
-            })
-            .then(() => {
-                alert("出欠を送信しました！");
-            })
-            .catch(err => {
-                alert("送信エラー: " + err);
-            });
-        }
-
-        // 管理者申請処理
         function applyRole() {
             const applicantName = document.getElementById('applicantName').value;
             const role = document.getElementById('roleSelect').value;
@@ -193,6 +147,7 @@
             })
             .then(() => {
                 alert("管理者申請を送信しました。管理者の承認をお待ちください。");
+                location.reload();
             })
             .catch(err => {
                 alert("申請エラー: " + err);
