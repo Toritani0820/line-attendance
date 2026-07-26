@@ -8,8 +8,9 @@
         body { font-family: sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
         .card { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         button { background: #00b900; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
-        input, select { padding: 8px; margin: 5px 0; width: 100%; box-sizing: border-box; }
+        input, select, textarea { padding: 8px; margin: 5px 0 15px 0; width: 100%; box-sizing: border-box; }
         .section { margin-top: 30px; border-top: 2px solid #ddd; padding-top: 20px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
@@ -21,6 +22,9 @@
     <div class="section">
         <h2>管理者権限の申請</h2>
         <div class="card">
+            <label>申請者名:</label>
+            <input type="text" id="applicantName" placeholder="お名前を入力してください">
+
             <label>希望権限:</label>
             <select id="roleSelect">
                 <option value="世帯管理者">世帯管理者</option>
@@ -28,8 +32,19 @@
                 <option value="閲覧者">閲覧者</option>
             </select>
             
-            <label>対象世帯ID (手入力):</label>
-            <input type="text" id="householdIdInput" placeholder="例: HOUSEHOLD_01">
+            <label>申請種別:</label>
+            <select id="applicationType" onchange="toggleHouseholdInput()">
+                <option value="新規世帯">新規世帯</option>
+                <option value="メンバー追加">メンバー追加</option>
+            </select>
+            
+            <div id="householdGroup" class="hidden">
+                <label>世帯ID (必須):</label>
+                <input type="text" id="householdIdInput" placeholder="例: HOUSEHOLD_01">
+            </div>
+
+            <label>備考:</label>
+            <textarea id="remark" rows="3" placeholder="連絡事項や詳細を記入"></textarea>
             
             <button onclick="applyRole()">管理者を申請する</button>
         </div>
@@ -39,6 +54,18 @@
         const GAS_URL = "ここにデプロイしたGASのウェブアプリURLを貼り付けてください";
         const currentUserId = "TEST_USER_001"; // 本番はLIFF SDKから取得したLINE IDを利用
 
+        // 申請種別による世帯ID欄の表示切替
+        function toggleHouseholdInput() {
+            const type = document.getElementById('applicationType').value;
+            const group = document.getElementById('householdGroup');
+            if (type === "メンバー追加") {
+                group.classList.remove('hidden');
+            } else {
+                group.classList.add('hidden');
+                document.getElementById('householdIdInput').value = ""; // クリア
+            }
+        }
+
         // ページ読み込み時に予定を取得
         window.onload = function() {
             fetch(`${GAS_URL}?action=getEvents&userId=${currentUserId}`)
@@ -46,7 +73,7 @@
             .then(data => {
                 document.getElementById('status').innerText = "";
                 const list = document.getElementById('eventList');
-                if(data.events && data.events.length > 0) {
+                if(data.status === "success" && data.events && data.events.length > 0) {
                     data.events.forEach(ev => {
                         let div = document.createElement('div');
                         div.className = 'card';
@@ -108,11 +135,19 @@
 
         // 管理者申請処理
         function applyRole() {
+            const applicantName = document.getElementById('applicantName').value;
             const role = document.getElementById('roleSelect').value;
+            const applicationType = document.getElementById('applicationType').value;
             const householdId = document.getElementById('householdIdInput').value;
+            const remark = document.getElementById('remark').value;
 
-            if (!householdId.trim()) {
-                alert("世帯IDを入力してください。");
+            if (!applicantName.trim()) {
+                alert("申請者名を入力してください。");
+                return;
+            }
+
+            if (applicationType === "メンバー追加" && !householdId.trim()) {
+                alert("メンバー追加の場合は世帯IDの入力が必須です。");
                 return;
             }
 
@@ -123,8 +158,11 @@
                 body: JSON.stringify({
                     action: "applyRole",
                     lineUserId: currentUserId,
+                    applicantName: applicantName,
                     role: role,
-                    targetHouseholdId: householdId
+                    applicationType: applicationType,
+                    targetHouseholdId: applicationType === "新規則世帯" ? "" : householdId,
+                    remark: remark
                 })
             })
             .then(() => {
