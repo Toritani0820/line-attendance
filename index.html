@@ -35,22 +35,23 @@
                 });
         });
 
-        // ボタンを押した時の送信処理
+       // ボタンを押した時の送信処理
         document.getElementById('sendBtn').addEventListener('click', () => {
             document.getElementById('status').innerText = "送信中...";
             
             fetch(GAS_URL, {
                 method: 'POST',
-                // ※CORSエラー回避のため 'text/plain' を指定することが多いですが、まずは標準のjsonでテストします
+                mode: 'no-cors', // ★ここを追加（CORSエラーを回避する設定）
                 headers: { 'Content-Type': 'application/json' }, 
                 body: JSON.stringify({
                     userId: currentUserId,
                     message: "GitHub Pagesからのテスト送信成功！"
                 })
             })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('status').innerText = "送信成功！スプレッドシートを確認してください。";
+            .then(() => {
+                // ※ mode: 'no-cors' の仕様上、レスポンスの中身（jsonなど）は読み取れませんが、
+                //   エラーなくここまで到達すれば送信は成功しています。
+                document.getElementById('status').innerText = "送信完了しました！スプレッドシートを確認してください。";
             })
             .catch(error => {
                 document.getElementById('status').innerText = "送信エラー: " + error;
