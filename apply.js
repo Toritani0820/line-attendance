@@ -1,9 +1,15 @@
 let currentLineUserId = "";
-let isSystemAdminExist = false; // システム管理者が存在するかどうかのフラグ
+let currentLineDisplayName = "";
+let isSystemAdminExist = false;
 
 window.onload = async function() {
   try {
-    // config.jsで設定したLIFF IDを使用
+    if (typeof CONFIG === 'undefined') {
+      showAppMessage("config.js が読み込まれていません。設定を確認してください。", "error");
+      return;
+    }
+
+    // LIFF初期化
     await liff.init({ liffId: CONFIG.LIFF_ID });
     
     if (!liff.isLoggedIn()) {
@@ -13,57 +19,69 @@ window.onload = async function() {
 
     const profile = await liff.getProfile();
     currentLineUserId = profile.userId;
+    currentLineDisplayName = profile.displayName || "LINEユーザー";
 
-    // LINEの表示名を申請者名の初期値としてセット
-    const nameInput = document.getElementById("applicantName");
-    if (nameInput) {
-      nameInput.value = profile.displayName;
-    }
-
-    // サーバへステータス問い合わせ
+    setProfileToUI(currentLineDisplayName);
     await fetchUserStatus(currentLineUserId);
 
   } catch (err) {
-    console.error("初期化エラー:", err);
-    showAppMessage("読み込みエラーが発生しました。", "error");
+    console.warn("LIFF初期化に失敗しました（通常ブラウザモードで動作中）：", err);
+    
+    // ※ブラウザ単体でテストしている場合のフォールバック（テスト用ID・名前を設定）
+    currentLineUserId = "TEST_USER_" + Date.now();
+    currentLineDisplayName = "テストユーザー（ブラウザ）";
+    
+    setProfileToUI(currentLineDisplayName + " ※要LINE環境");
+    showAppMessage("LIFF環境外で動作しています。テストモードとして動作します。", "error");
+
+    try {
+      await fetchUserStatus(currentLineUserId);
+    } catch (e) {
+      console.error("ステータス取得失敗:", e);
+    }
   }
 };
 
 /**
- * ステータス取得処理
+ * 画面の入力欄にLINE表示名や氏名をセットする補助関数
  */
-async function fetchUserStatus(lineUserId) {
-  const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+function setProfileToUI(displayName) {
+  const displayNameInput = document.getElementById("lineDisplayName");
+  if (displayNameInput) {
+    displayNameInput.value = displayName;
+  }
 
-  try {
-    const response = await fetch(url);
-    const result = await response.json();
-
-    if (result.status === "success") {
-      isSystemAdminExist = result.systemAdminExists;
-
-      document.getElementById("status-display").innerText = 
-        `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
-
-      // 「未登録」の場合はここでセレクトボックスを初期化し、登録カードを表示する
-      if (result.role === "未登録") {
-        initRoleSelect();
-        document.getElementById("registration-card").classList.remove("hidden");
-      }
-    } else {
-      showAppMessage("ステータスの取得に失敗しました。", "error");
-    }
-  } catch (err) {
-    console.error("通信エラー:", err);
-    showAppMessage("通信エラーが発生しました。", "error");
+  const fullNameInput = document.getElementById("fullName");
+  if (fullNameInput && !fullNameInput.value) {
+    // LINE表示名を氏名の初期値に設定（変更可能）
+    fullNameInput.value = displayName.replace(" ※要LINE環境", "");
   }
 }
 
-/**
- * 権限のセレクトボックスを動的生成する
- * - システム管理者が未設定の場合: 「システム管理者」のみ表示
- * - システム管理者が設定済みの場合: 「利用禁止」を除外し、逆順で表示
- */
+async function fetchUserStatus(lineUserId) {
+  const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+
+  const response = await fetch(url);
+  const result = await response.json();
+
+  if (result.status === "success") {
+    isSystemAdminExist = result.systemAdminExists;
+
+    const statusDisplay = document.getElementById("status-display");
+    if (statusDisplay) {
+      statusDisplay.innerText = `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
+    }
+
+    if (result.role === "未登録") {
+      initRoleSelect();
+      const regCard = document.getElementById("registration-card");
+      if (regCard) regCard.classList.remove("hidden");
+    }
+  } else {
+    showAppMessage("ステータスの取得に失敗しました: " + result.message, "error");
+  }
+}
+
 function initRoleSelect() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect || !CONFIG.ROLES) return;
@@ -91,20 +109,22 @@ function initRoleSelect() {
   handleRoleOrTypeChange();
 }
 
-/**
- * 希望権限および申請種別の選択に応じて、フォーム項目の表示/非表示を制御する
- */
 function handleRoleOrTypeChange() {
-  const role = document.getElementById("role").value;
+  const roleElement = document.getElementById("role");
+  if (!roleElement) return;
+  const role = roleElement.value;
+
   const appTypeSelect = document.getElementById("applicationType");
   const appType = appTypeSelect ? appTypeSelect.value : "";
 
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
+  const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
+  if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
@@ -112,7 +132,11 @@ function handleRoleOrTypeChange() {
   }
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     if (fieldAppType) fieldAppType.classList.remove("hidden");
-    if (appType === "メンバー追加") {
+    
+    if (appType === "新規登録") {
+      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+    } else if (appType === "管理者追加") {
       if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
     }
   } 
@@ -121,61 +145,66 @@ function handleRoleOrTypeChange() {
   }
 }
 
-/**
- * 申請データの送信処理
- */
 async function submitApplication(event) {
   event.preventDefault();
 
-  const role = document.getElementById("role").value;
-  const appTypeSelect = document.getElementById("applicationType");
-  const targetHouseholdInput = document.getElementById("targetHouseholdId");
-  const keywordInput = document.getElementById("adminKeyword");
-
-  const payload = {
-    action: "applyRole",
-    lineUserId: currentLineUserId,
-    applicantName: document.getElementById("applicantName").value,
-    role: role,
-    applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) ? appTypeSelect.value : "",
-    targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value : "",
-    keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN) ? keywordInput.value : ""
-  };
-
   try {
     setButtonState(true);
+
+    const roleElement = document.getElementById("role");
+    const role = roleElement ? roleElement.value : "";
+    const appTypeSelect = document.getElementById("applicationType");
+    const fullNameInput = document.getElementById("fullName");
+    const targetHouseholdInput = document.getElementById("targetHouseholdId");
+    const householdNameInput = document.getElementById("householdName");
+    const keywordInput = document.getElementById("adminKeyword");
+
+    const payload = {
+      action: "applyRole",
+      lineUserId: currentLineUserId,
+      lineDisplayName: currentLineDisplayName,
+      fullName: fullNameInput ? fullNameInput.value.trim() : "",
+      role: role,
+      applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
+      targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
+      householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
+      keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
+    };
+
+    if (!payload.fullName) {
+      showAppMessage("氏名を入力してください。", "error");
+      setButtonState(false);
+      return;
+    }
+
     const response = await fetch(CONFIG.GAS_WEB_APP_URL, {
       method: "POST",
       body: JSON.stringify(payload)
     });
+    
     const result = await response.json();
 
     if (result.status === "success") {
-      showAppMessage(`[${CONFIG.APP_NAME}] ${result.message}`, "success");
+      showAppMessage(result.message, "success");
       setTimeout(() => location.reload(), 1500);
     } else {
-      showAppMessage(`[${CONFIG.APP_NAME}] ${result.message}`, "error");
+      showAppMessage(result.message, "error");
       setButtonState(false);
     }
   } catch (err) {
     console.error("送信エラー:", err);
-    showAppMessage(`[${CONFIG.APP_NAME}] 送信中に通信エラーが発生しました。`, "error");
+    showAppMessage("送信中にエラーが発生しました: " + err.message, "error");
     setButtonState(false);
   }
 }
 
-/**
- * 画面内にアプリ名（改行）メッセージの形式で通知を表示するカスタム関数
- */
 function showAppMessage(message, type = "error") {
   const msgBox = document.getElementById("app-message-box");
   if (!msgBox) {
-    // 要素がない場合のフォールバック（alertの場合は \n で改行）
     alert(`${CONFIG.APP_NAME}\n${message}`);
     return;
   }
 
-  // アプリ名を太字ブロックで表示し、その下に改行してメッセージを配置
   msgBox.innerHTML = `<strong class="block font-bold mb-1">${CONFIG.APP_NAME}</strong><span class="block">${message}</span>`;
   msgBox.classList.remove("hidden");
 
