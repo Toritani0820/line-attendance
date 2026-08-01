@@ -1,10 +1,38 @@
-document.addEventListener("DOMContentLoaded", () => {
-  initRoleSelect();
-});
+let currentLineUserId = "";
+
+window.onload = async function() {
+  try {
+    // config.jsで定義された権限からセレクトボックスを動的生成
+    initRoleSelect();
+
+    // config.jsで設定したLIFF IDを使用
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    const profile = await liff.getProfile();
+    currentLineUserId = profile.userId;
+
+    // LINEの表示名を申請者名の初期値としてセット
+    const nameInput = document.getElementById("applicantName");
+    if (nameInput) {
+      nameInput.value = profile.displayName;
+    }
+
+    // サーバへステータス問い合わせ
+    await fetchUserStatus(currentLineUserId);
+
+  } catch (err) {
+    console.error("初期化エラー:", err);
+    document.getElementById("status-display").innerText = "読み込みエラーが発生しました。";
+  }
+};
 
 /**
  * config.jsの定義から希望権限のセレクトボックスを逆順で生成する
- * （【利用禁止】は除外）
  */
 function initRoleSelect() {
   const roleSelect = document.getElementById("role");
@@ -30,83 +58,113 @@ function initRoleSelect() {
 }
 
 /**
- * 選択された権限や申請種別に応じて入力欄の表示/非表示を切り替える
+ * 希望権限および申請種別の選択に応じて、フォーム項目の表示/非表示を制御する
  */
 function handleRoleOrTypeChange() {
   const role = document.getElementById("role").value;
   const appTypeSelect = document.getElementById("applicationType");
   const appType = appTypeSelect ? appTypeSelect.value : "";
 
+  // 各フィールドの要素
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
   const fieldKeyword = document.getElementById("field-keyword");
 
   // いったんすべて非表示にする
-  if (fieldAppType) fieldAppType.classList.add("hidden");
-  if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
-  if (fieldKeyword) fieldKeyword.classList.add("hidden");
+  fieldAppType.classList.add("hidden");
+  fieldTargetHousehold.classList.add("hidden");
+  fieldKeyword.classList.add("hidden");
 
-  // 【システム管理者のみ】キーワード入力欄を表示
+  // 権限ごとの表示制御
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    if (fieldKeyword) fieldKeyword.classList.remove("hidden");
+    // ① システム管理者: 登録用キーワードを表示
+    fieldKeyword.classList.remove("hidden");
   }
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
-    if (fieldAppType) fieldAppType.classList.remove("hidden");
+    // ③ 世帯管理者: 申請種別を表示し、その内容で分岐
+    fieldAppType.classList.remove("hidden");
     if (appType === "メンバー追加") {
-      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+      fieldTargetHousehold.classList.remove("hidden");
     }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
-    if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    // ④ 予定回答者・閲覧者: 対象世帯IDのみ
+    fieldTargetHousehold.classList.remove("hidden");
   }
 }
 
 /**
- * 申請フォーム送信処理（GASのウェブアプリへ送信）
+ * ステータス取得処理
+ */
+async function fetchUserStatus(lineUserId) {
+  const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+
+  try {
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (result.status === "success") {
+      document.getElementById("status-display").innerText = 
+        `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
+
+      // 「未登録」の場合は申請フォームを表示する
+      if (result.role === "未登録") {
+        document.getElementById("registration-card").classList.remove("hidden");
+      }
+    } else {
+      document.getElementById("status-display").innerText = "ステータスの取得に失敗しました。";
+    }
+  } catch (err) {
+    console.error("通信エラー:", err);
+    document.getElementById("status-display").innerText = "通信エラーが発生しました。";
+  }
+}
+
+/**
+ * 申請データの送信処理
  */
 async function submitApplication(event) {
   event.preventDefault();
 
-  const applicantName = document.getElementById("applicantName").value;
   const role = document.getElementById("role").value;
-  const appType = document.getElementById("applicationType") ? document.getElementById("applicationType").value : "";
-  const targetHouseholdId = document.getElementById("targetHouseholdId") ? document.getElementById("targetHouseholdId").value : "";
-  const adminKeyword = document.getElementById("adminKeyword") ? document.getElementById("adminKeyword").value : "";
+  const appTypeSelect = document.getElementById("applicationType");
+  const targetHouseholdInput = document.getElementById("targetHouseholdId");
+  const keywordInput = document.getElementById("adminKeyword");
 
-  // LIFFなどから取得したLINEユーザーID
-  const lineUserId = window.currentLineUserId || "TEST_LINE_USER_ID";
-
+  // バックエンドへ送信するペイロードの構築
   const payload = {
-    lineUserId: lineUserId,
-    applicantName: applicantName,
+    action: "applyRole",
+    lineUserId: currentLineUserId,
+    applicantName: document.getElementById("applicantName").value,
     role: role,
-    applicationType: appType,
-    targetHouseholdId: targetHouseholdId,
-    keyword: adminKeyword
+    applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) ? appTypeSelect.value : "",
+    targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value : "",
+    keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN) ? keywordInput.value : ""
   };
 
-  // ※デプロイしたGASの「ウェブアプリのURL」に書き換えてください
-  const GAS_API_URL = "https://script.google.com/macros/s/【あなたのGASのウェブアプリURL】/exec";
-
   try {
-    const response = await fetch(GAS_API_URL, {
+    setButtonState(true);
+    const response = await fetch(CONFIG.GAS_WEB_APP_URL, {
       method: "POST",
       body: JSON.stringify(payload)
     });
-
     const result = await response.json();
 
-    // GAS側から返却されたステータスに応じて処理
     if (result.status === "success") {
-      alert(result.message || "申請を受け付けました。");
+      alert(result.message);
       location.reload();
     } else {
-      // キーワード違いのエラーメッセージやロック中の警告を表示
-      alert(result.message);
+      alert("エラー: " + result.message);
+      setButtonState(false);
     }
-
-  } catch (error) {
-    console.error("通信エラー:", error);
-    alert("サーバーとの通信に失敗しました。時間をおいて再度お試しください。");
+  } catch (err) {
+    console.error("送信エラー:", err);
+    alert("送信中に通信エラーが発生しました。");
+    setButtonState(false);
   }
+}
+
+function setButtonState(disabled) {
+  const btn = document.querySelector("button[type='submit']");
+  if (btn) btn.disabled = disabled;
 }
