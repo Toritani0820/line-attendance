@@ -47,9 +47,10 @@ async function initializeApp() {
       displayNameInput.value = currentLineDisplayName;
     }
 
+    // 新規登録時は氏名欄を空にする
     const fullNameInput = document.getElementById("fullName");
-    if (fullNameInput && !fullNameInput.value) {
-      fullNameInput.value = currentLineDisplayName;
+    if (fullNameInput) {
+      fullNameInput.value = "";
     }
 
     await fetchUserStatus(currentLineUserId);
@@ -123,10 +124,12 @@ function handleRoleOrTypeChange() {
 
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
+  const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
+  if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
@@ -135,6 +138,10 @@ function handleRoleOrTypeChange() {
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     if (fieldAppType) fieldAppType.classList.remove("hidden");
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    
+    if (appType === "新規登録") {
+      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+    }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
@@ -146,6 +153,7 @@ async function submitApplication() {
   const role = roleSelect ? roleSelect.value : "";
   const appTypeSelect = document.getElementById("applicationType");
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
+  const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
   
   const fullNameInput = document.getElementById("fullName");
@@ -169,6 +177,7 @@ async function submitApplication() {
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
+    householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
 
