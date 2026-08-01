@@ -1,68 +1,85 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>利用申請・マイページ</title>
-  <!-- LIFF SDKの読み込み -->
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <style>
-    body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; color: #333; }
-    .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
-    button { background: #06c755; color: white; border: none; padding: 10px 15px; border-radius: 4px; width: 100%; font-size: 16px; cursor: pointer; }
-    button:hover { background: #05b14c; }
-    .hidden { display: none; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>利用申請・マイページ</title>
+    <!-- Tailwind CSS (デザイン用CDN) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .hidden { display: none !important; }
+    </style>
 </head>
-<body>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col justify-between">
 
-  <div class="card">
-    <h2>マイページ</h2>
-    <p id="status-display" style="font-weight: bold;">ステータスを確認中...</p>
-  </div>
+    <div class="max-w-md w-full mx-auto p-4">
+        <!-- ① ヘッダーは機能名のみ -->
+        <header class="mb-6 text-center">
+            <h1 class="text-xl font-bold text-gray-900">利用申請・マイページ</h1>
+        </header>
 
-  <!-- 未登録の場合のみ表示する申請フォーム -->
-  <div id="registration-card" class="card hidden">
-    <h3>利用申請 / 管理者・権限設定</h3>
-    <form id="reg-form" onsubmit="submitApplication(event)">
-      
-      <!-- 共通: 申請者氏名 -->
-      <label>申請者氏名:</label>
-      <input type="text" id="applicantName" required placeholder="例: 山田 太郎">
+        <!-- アプリ名付きメッセージ・ロック通知エリア -->
+        <div id="app-message-box" class="hidden p-3 mb-4 rounded text-sm"></div>
 
-      <!-- 共通: 希望権限 -->
-      <label>希望権限:</label>
-      <select id="role" onchange="handleRoleOrTypeChange()"></select>
+        <!-- 現在のステータス表示 -->
+        <div class="bg-white p-4 rounded-lg shadow mb-4">
+            <p id="status-display" class="text-sm font-medium text-gray-700">読み込み中...</p>
+        </div>
 
-      <!-- 条件付き: 申請種別（世帯管理者の場合のみ使用） -->
-      <div id="field-applicationType" class="hidden">
-        <label>申請種別:</label>
-        <select id="applicationType" onchange="handleRoleOrTypeChange()">
-          <option value="新規世帯">新規世帯</option>
-          <option value="メンバー追加">メンバー追加</option>
-        </select>
-      </div>
+        <!-- 登録・申請フォームカード（未登録時のみ表示） -->
+        <div id="registration-card" class="hidden bg-white p-6 rounded-lg shadow">
+            <h2 class="text-lg font-semibold mb-4 text-gray-800">新規利用・権限申請</h2>
+            
+            <form onsubmit="submitApplication(event)" class="space-y-4">
+                <!-- 申請者名 -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">申請者名（LINE表示名）</label>
+                    <input type="text" id="applicantName" readonly class="w-full px-3 py-2 border rounded bg-gray-100 text-sm">
+                </div>
 
-      <!-- 条件付き: 対象世帯ID -->
-      <div id="field-targetHouseholdId" class="hidden">
-        <label>対象世帯ID:</label>
-        <input type="text" id="targetHouseholdId" placeholder="例: HH_01">
-      </div>
+                <!-- 希望権限 -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">希望権限</label>
+                    <select id="role" onchange="handleRoleOrTypeChange()" class="w-full px-3 py-2 border rounded text-sm bg-white">
+                        <!-- JSで動的生成 -->
+                    </select>
+                </div>
 
-      <!-- 条件付き: 登録用キーワード（システム管理者の場合のみ使用） -->
-      <div id="field-keyword" class="hidden">
-        <label>登録用キーワード:</label>
-        <input type="password" id="adminKeyword" placeholder="システム管理者登録キーワードを入力">
-      </div>
+                <!-- 申請種別（世帯管理者用） -->
+                <div id="field-applicationType" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">申請種別</label>
+                    <select id="applicationType" onchange="handleRoleOrTypeChange()" class="w-full px-3 py-2 border rounded text-sm bg-white">
+                        <option value="新規登録">新規登録</option>
+                        <option value="メンバー追加">メンバー追加</option>
+                    </select>
+                </div>
 
-      <button type="submit">申請を送信する</button>
-    </form>
-  </div>
+                <!-- 対象世帯ID -->
+                <div id="field-targetHouseholdId" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">対象世帯ID</label>
+                    <input type="text" id="targetHouseholdId" placeholder="世帯IDを入力してください" class="w-full px-3 py-2 border rounded text-sm">
+                </div>
 
-  <!-- 外部ファイルの読み込み -->
-  <script src="config.js"></script>
-  <script src="apply.js"></script>
+                <!-- システム管理者キーワード -->
+                <div id="field-keyword" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">システム管理者キーワード</label>
+                    <input type="password" id="adminKeyword" placeholder="キーワードを入力" class="w-full px-3 py-2 border rounded text-sm">
+                </div>
 
+                <!-- 送信ボタン -->
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded font-semibold text-sm hover:bg-blue-700 transition">
+                    申請する
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 外部スクリプト読み込み -->
+    <!-- 1. LIFF SDK -->
+    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <!-- 2. 設定ファイル -->
+    <script src="config.js"></script>
+    <!-- 3. メイン処理 -->
+    <script src="apply.js"></script>
 </body>
 </html>
