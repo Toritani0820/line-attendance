@@ -1,74 +1,85 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>利用申請</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .hidden { display: none !important; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用申請・マイページ</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col justify-between">
+<body class="bg-gray-50 text-gray-800 font-sans">
+  <div class="max-w-md mx-auto p-4 min-h-screen flex flex-col justify-center">
+    
+    <h1 class="text-xl font-bold text-center mb-6">利用申請・マイページ</h1>
 
-    <div class="max-w-md w-full mx-auto p-4">
-        <header class="mb-6 text-center">
-            <h1 class="text-xl font-bold text-gray-900">利用申請・マイページ</h1>
-        </header>
+    <!-- メッセージ表示エリア -->
+    <div id="app-message-box" class="hidden"></div>
 
-        <div id="app-message-box" class="hidden p-3 mb-4 rounded text-sm"></div>
-
-        <div class="bg-white p-4 rounded-lg shadow mb-4">
-            <p id="status-display" class="text-sm font-medium text-gray-700">読み込み中...</p>
-        </div>
-
-        <div id="registration-card" class="hidden bg-white p-6 rounded-lg shadow">
-            <h2 class="text-lg font-semibold mb-4 text-gray-800">新規利用・権限申請</h2>
-            
-            <div id="apply-form" class="space-y-4">
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">LINE表示名</label>
-                    <input type="text" id="lineDisplayName" readonly class="w-full px-3 py-2 border rounded bg-gray-100 text-sm">
-                </div>
-
-                <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">希望権限 <span class="text-red-500">*</span></label>
-                    <select id="role" class="w-full px-3 py-2 border rounded text-sm bg-white">
-                    </select>
-                </div>
-
-                <div id="field-applicationType" class="hidden">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">申請種別</label>
-                    <select id="applicationType" class="w-full px-3 py-2 border rounded text-sm bg-white">
-                        <option value="新規登録">新規登録</option>
-                        <option value="管理者追加">管理者追加</option>
-                    </select>
-                </div>
-
-                <div id="field-targetHouseholdId" class="hidden">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">世帯ID <span class="text-red-500">*</span></label>
-                    <input type="text" id="targetHouseholdId" placeholder="世帯IDを入力してください" class="w-full px-3 py-2 border rounded text-sm">
-                </div>
-
-                <div id="field-householdName" class="hidden">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">世帯名 <span class="text-red-500">*</span></label>
-                    <input type="text" id="householdName" placeholder="例: 山田家" class="w-full px-3 py-2 border rounded text-sm">
-                </div>
-
-                <div id="field-keyword" class="hidden">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">システム管理者キーワード <span class="text-red-500">*</span></label>
-                    <input type="password" id="adminKeyword" placeholder="キーワードを入力" class="w-full px-3 py-2 border rounded text-sm">
-                </div>
-
-                <button type="button" id="submit-btn" class="w-full bg-blue-600 text-white py-2 px-4 rounded font-semibold text-sm hover:bg-blue-700 transition">
-                    申請する
-                </button>
-            </div>
-        </div>
+    <!-- 現在のステータス表示 -->
+    <div id="status-card" class="bg-white shadow rounded-lg p-4 mb-4">
+      <p id="status-display" class="text-sm font-medium text-gray-700">読み込み中...</p>
     </div>
 
-    <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <script src="config.js"></script>
-    <script src="apply.js"></script>
+    <!-- 登録・申請カード (初期状態では非表示) -->
+    <div id="registration-card" class="bg-white shadow rounded-lg p-4 hidden">
+      <h2 class="text-lg font-semibold mb-4 border-b pb-2">新規利用・権限申請</h2>
+
+      <!-- LINE表示名 -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">LINE表示名</label>
+        <input type="text" id="lineDisplayName" class="w-full border border-gray-300 rounded p-2 text-sm bg-gray-100" readonly>
+      </div>
+
+      <!-- 氏名入力フィールド -->
+      <div id="field-fullName" class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">氏名 <span class="text-red-500">*</span></label>
+        <input type="text" id="fullName" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="例: 山田 太郎">
+      </div>
+
+      <!-- 希望権限 -->
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">希望権限 <span class="text-red-500">*</span></label>
+        <select id="role" class="w-full border border-gray-300 rounded p-2 text-sm bg-white"></select>
+      </div>
+
+      <!-- 申請種別 (世帯管理者用) -->
+      <div id="field-applicationType" class="mb-4 hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">申請種別</label>
+        <select id="applicationType" class="w-full border border-gray-300 rounded p-2 text-sm bg-white">
+          <option value="新規登録">新規登録</option>
+          <option value="管理者追加">管理者追加</option>
+        </select>
+      </div>
+
+      <!-- 世帯ID -->
+      <div id="field-targetHouseholdId" class="mb-4 hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">世帯ID <span class="text-red-500">*</span></label>
+        <input type="text" id="targetHouseholdId" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="世帯IDを入力">
+      </div>
+
+      <!-- 世帯名 -->
+      <div id="field-householdName" class="mb-4 hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">世帯名 <span class="text-red-500">*</span></label>
+        <input type="text" id="householdName" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="世帯名を入力">
+      </div>
+
+      <!-- システム管理者キーワード -->
+      <div id="field-keyword" class="mb-4 hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">システム管理者キーワード <span class="text-red-500">*</span></label>
+        <input type="password" id="adminKeyword" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="キーワードを入力">
+      </div>
+
+      <!-- 送信ボタン -->
+      <button id="submit-btn" class="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 transition">申請する</button>
+    </div>
+
+  </div>
+
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/liff.js"></script>
+  <!-- 設定ファイル -->
+  <script src="config.js"></script>
+  <!-- アプリケーションロジック -->
+  <script src="apply.js"></script>
 </body>
 </html>
