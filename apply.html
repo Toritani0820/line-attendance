@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>利用申請・マイページ</title>
+  <!-- LIFF SDKの読み込み -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background-color: #f9f9f9; color: #333; }
+    .card { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    input, select, textarea { width: 100%; padding: 8px; margin-top: 5px; margin-bottom: 15px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+    button { background: #06c755; color: white; border: none; padding: 10px 15px; border-radius: 4px; width: 100%; font-size: 16px; cursor: pointer; }
+    button:hover { background: #05b14c; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h2>マイページ</h2>
+    <p id="status-display" style="font-weight: bold;">ステータスを確認中...</p>
+  </div>
+
+  <!-- 未登録の場合のみ表示する申請フォーム -->
+  <div id="registration-card" class="card hidden">
+    <h3>利用申請 / 管理者・権限設定</h3>
+    <form id="reg-form" onsubmit="submitApplication(event)">
+      
+      <!-- 共通: 申請者氏名 -->
+      <label>申請者氏名:</label>
+      <input type="text" id="applicantName" required placeholder="例: 山田 太郎">
+
+      <!-- 共通: 希望権限 -->
+      <label>希望権限:</label>
+      <select id="role" onchange="handleRoleOrTypeChange()"></select>
+
+      <!-- 条件付き: 申請種別（世帯管理者の場合のみ使用） -->
+      <div id="field-applicationType" class="hidden">
+        <label>申請種別:</label>
+        <select id="applicationType" onchange="handleRoleOrTypeChange()">
+          <option value="新規世帯">新規世帯</option>
+          <option value="メンバー追加">メンバー追加</option>
+        </select>
+      </div>
+
+      <!-- 条件付き: 対象世帯ID -->
+      <div id="field-targetHouseholdId" class="hidden">
+        <label>対象世帯ID:</label>
+        <input type="text" id="targetHouseholdId" placeholder="例: HH_01">
+      </div>
+
+      <!-- 条件付き: 登録用キーワード（システム管理者の場合のみ使用） -->
+      <div id="field-keyword" class="hidden">
+        <label>登録用キーワード:</label>
+        <input type="password" id="adminKeyword" placeholder="システム管理者登録キーワードを入力">
+      </div>
+
+      <button type="submit">申請を送信する</button>
+    </form>
+  </div>
+
+  <!-- 外部ファイルの読み込み -->
+  <script src="config.js"></script>
+  <script src="apply.js"></script>
+
+</body>
+</html>
