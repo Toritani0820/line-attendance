@@ -1,3 +1,6 @@
+// ==========================================
+// apply.js （全文）
+// ==========================================
 let currentLineUserId = "";
 let currentLineDisplayName = "";
 let isSystemAdminExist = false;
@@ -47,7 +50,7 @@ async function initializeApp() {
       displayNameInput.value = currentLineDisplayName;
     }
 
-    // 氏名欄の初期値にLINE表示名をセットしておく（必要に応じて手動修正可能）
+    // 未登録時は氏名欄の初期値にLINE表示名をセット
     const fullNameInput = document.getElementById("fullName");
     if (fullNameInput && !fullNameInput.value) {
       fullNameInput.value = currentLineDisplayName;
@@ -158,11 +161,9 @@ async function submitApplication() {
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
   
-  // 氏名入力欄から値を取得
   const fullNameInput = document.getElementById("fullName");
   const fullName = fullNameInput ? fullNameInput.value.trim() : "";
 
-  // 氏名の未入力チェック
   if (!fullName) {
     showAppMessage("氏名を入力してください。", "error");
     return;
@@ -177,7 +178,7 @@ async function submitApplication() {
     action: "applyRole",
     lineUserId: currentLineUserId,
     lineDisplayName: currentLineDisplayName,
-    fullName: fullName, // 入力された氏名を送信
+    fullName: fullName,
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
@@ -212,7 +213,6 @@ async function submitApplication() {
 }
 
 function showAppMessage(message, type = "error") {
-  // スマホでも確認できるようにポップアップ（alert）を表示
   alert(message);
 
   const msgBox = document.getElementById("app-message-box");
