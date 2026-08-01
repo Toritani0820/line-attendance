@@ -25,11 +25,15 @@
         <div id="registration-card" class="hidden bg-white p-6 rounded-lg shadow">
             <h2 class="text-lg font-semibold mb-4 text-gray-800">新規利用・権限申請</h2>
             
-            <!-- onsubmitを削除し、純粋なformタグに変更 -->
             <form id="apply-form" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">LINE表示名</label>
                     <input type="text" id="lineDisplayName" readonly class="w-full px-3 py-2 border rounded bg-gray-100 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">氏名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="fullName" placeholder="氏名を入力してください" class="w-full px-3 py-2 border rounded text-sm">
                 </div>
 
                 <div>
