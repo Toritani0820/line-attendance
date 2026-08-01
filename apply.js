@@ -25,6 +25,12 @@ window.onload = async function() {
       displayNameInput.value = currentLineDisplayName;
     }
 
+    // 氏名の初期値にLINE表示名をセット（未入力の場合のみ）
+    const fullNameInput = document.getElementById("fullName");
+    if (fullNameInput && !fullNameInput.value) {
+      fullNameInput.value = currentLineDisplayName;
+    }
+
     // 各種イベントリスナーの動的バインド
     const roleSelect = document.getElementById("role");
     if (roleSelect) {
@@ -36,9 +42,10 @@ window.onload = async function() {
       appTypeSelect.addEventListener("change", handleRoleOrTypeChange);
     }
 
-    const form = document.getElementById("apply-form");
-    if (form) {
-      form.addEventListener("submit", submitApplication);
+    // 【重要】フォームのsubmitではなく、ボタンのclickイベントを直接監視する
+    const submitBtn = document.getElementById("submit-btn");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", submitApplication);
     }
 
     await fetchUserStatus(currentLineUserId);
@@ -153,9 +160,7 @@ function handleRoleOrTypeChange() {
 /**
  * 申請ボタン押下時の処理とバリデーション
  */
-async function submitApplication(event) {
-  event.preventDefault();
-
+async function submitApplication() {
   const roleSelect = document.getElementById("role");
   const role = roleSelect ? roleSelect.value : "";
   const appTypeSelect = document.getElementById("applicationType");
