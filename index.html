@@ -32,14 +32,15 @@
                 </div>
 
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">氏名 <span class="text-red-500">*</span></label>
-                    <input type="text" id="fullName" placeholder="氏名を入力してください" class="w-full px-3 py-2 border rounded text-sm">
-                </div>
-
-                <div>
                     <label class="block text-xs font-semibold text-gray-600 mb-1">希望権限 <span class="text-red-500">*</span></label>
                     <select id="role" class="w-full px-3 py-2 border rounded text-sm bg-white">
                     </select>
+                </div>
+
+                <!-- 氏名入力欄（システム管理者以外のときに表示） -->
+                <div id="field-fullName">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">氏名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="fullName" placeholder="氏名を入力してください" class="w-full px-3 py-2 border rounded text-sm">
                 </div>
 
                 <div id="field-applicationType" class="hidden">
@@ -60,6 +61,7 @@
                     <input type="text" id="householdName" placeholder="例: 山田家" class="w-full px-3 py-2 border rounded text-sm">
                 </div>
 
+                <!-- システム管理者キーワード（システム管理者のときに表示・必須） -->
                 <div id="field-keyword" class="hidden">
                     <label class="block text-xs font-semibold text-gray-600 mb-1">システム管理者キーワード <span class="text-red-500">*</span></label>
                     <input type="password" id="adminKeyword" placeholder="キーワードを入力" class="w-full px-3 py-2 border rounded text-sm">
