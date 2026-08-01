@@ -47,6 +47,12 @@ async function initializeApp() {
       displayNameInput.value = currentLineDisplayName;
     }
 
+    // 氏名欄の初期値にLINE表示名をセットしておく（必要に応じて手動修正可能）
+    const fullNameInput = document.getElementById("fullName");
+    if (fullNameInput && !fullNameInput.value) {
+      fullNameInput.value = currentLineDisplayName;
+    }
+
     await fetchUserStatus(currentLineUserId);
 
   } catch (err) {
@@ -151,23 +157,33 @@ async function submitApplication() {
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
+  
+  // 氏名入力欄から値を取得
+  const fullNameInput = document.getElementById("fullName");
+  const fullName = fullNameInput ? fullNameInput.value.trim() : "";
+
+  // 氏名の未入力チェック
+  if (!fullName) {
+    showAppMessage("氏名を入力してください。", "error");
+    return;
+  }
+
+  if (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput && !keywordInput.value.trim()) {
+    showAppMessage("システム管理者キーワードを入力してください。", "error");
+    return;
+  }
 
   const payload = {
     action: "applyRole",
     lineUserId: currentLineUserId,
     lineDisplayName: currentLineDisplayName,
-    fullName: currentLineDisplayName, 
+    fullName: fullName, // 入力された氏名を送信
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
     householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
-
-  if (role === CONFIG.ROLES.SYSTEM_ADMIN && !payload.keyword) {
-    showAppMessage("システム管理者キーワードを入力してください。", "error");
-    return;
-  }
 
   try {
     const btn = document.getElementById("submit-btn");
@@ -196,7 +212,7 @@ async function submitApplication() {
 }
 
 function showAppMessage(message, type = "error") {
-  // スマホでも確実に見逃さないようポップアップ（alert）を表示する
+  // スマホでも確認できるようにポップアップ（alert）を表示
   alert(message);
 
   const msgBox = document.getElementById("app-message-box");
