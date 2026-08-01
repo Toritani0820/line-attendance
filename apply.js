@@ -47,9 +47,8 @@ async function initializeApp() {
       displayNameInput.value = currentLineDisplayName;
     }
 
-    // 新規登録時は氏名欄を空にする
     const fullNameInput = document.getElementById("fullName");
-    if (fullNameInput) {
+    if (fullNameInput && !fullNameInput.value) {
       fullNameInput.value = "";
     }
 
@@ -65,7 +64,14 @@ async function fetchUserStatus(lineUserId) {
   try {
     const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
     const response = await fetch(url);
-    const result = await response.json();
+    const responseText = await response.text();
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error("サーバーからの応答形式が不正です:\n" + responseText);
+    }
 
     if (result.status === "success") {
       isSystemAdminExist = result.systemAdminExists;
@@ -85,7 +91,7 @@ async function fetchUserStatus(lineUserId) {
     }
   } catch (err) {
     console.error("通信エラー:", err);
-    showAppMessage("ステータス取得時の通信に失敗しました。", "error");
+    showAppMessage("ステータス取得時の通信に失敗しました:\n" + err.message, "error");
   }
 }
 
@@ -120,16 +126,12 @@ function handleRoleOrTypeChange() {
   const role = roleSelect.value;
 
   const appTypeSelect = document.getElementById("applicationType");
-  const appType = appTypeSelect ? appTypeSelect.value : "";
-
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
-  const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
-  if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
@@ -138,10 +140,6 @@ function handleRoleOrTypeChange() {
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     if (fieldAppType) fieldAppType.classList.remove("hidden");
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
-    
-    if (appType === "新規登録") {
-      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
-    }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
@@ -153,7 +151,6 @@ async function submitApplication() {
   const role = roleSelect ? roleSelect.value : "";
   const appTypeSelect = document.getElementById("applicationType");
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
-  const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
   
   const fullNameInput = document.getElementById("fullName");
@@ -177,7 +174,6 @@ async function submitApplication() {
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
-    householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
 
@@ -190,7 +186,13 @@ async function submitApplication() {
       body: JSON.stringify(payload)
     });
     
-    const result = await response.json();
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error("サーバーからの応答形式が不正です:\n" + responseText);
+    }
 
     if (result.status === "success") {
       showAppMessage(result.message, "success");
@@ -201,7 +203,7 @@ async function submitApplication() {
     }
   } catch (err) {
     console.error("送信エラー:", err);
-    showAppMessage("送信中に通信エラーが発生しました。", "error");
+    showAppMessage("通信エラーが発生しました:\n" + err.message, "error");
     const btn = document.getElementById("submit-btn");
     if (btn) btn.disabled = false;
   }
