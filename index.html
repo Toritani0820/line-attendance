@@ -30,7 +30,7 @@
         <input type="text" id="lineDisplayName" class="w-full border border-gray-300 rounded p-2 text-sm bg-gray-100" readonly>
       </div>
 
-      <!-- 氏名入力フィールド -->
+      <!-- 氏名入力フィールド（初期値は空） -->
       <div id="field-fullName" class="mb-4">
         <label class="block text-sm font-medium text-gray-700 mb-1">氏名 <span class="text-red-500">*</span></label>
         <input type="text" id="fullName" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="例: 山田 太郎">
@@ -55,6 +55,12 @@
       <div id="field-targetHouseholdId" class="mb-4 hidden">
         <label class="block text-sm font-medium text-gray-700 mb-1">世帯ID <span class="text-red-500">*</span></label>
         <input type="text" id="targetHouseholdId" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="世帯IDを入力">
+      </div>
+
+      <!-- 世帯名（世帯管理者・新規登録時のみ表示。Householdsシートに保存されます） -->
+      <div id="field-householdName" class="mb-4 hidden">
+        <label class="block text-sm font-medium text-gray-700 mb-1">世帯名 <span class="text-red-500">*</span></label>
+        <input type="text" id="householdName" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="世帯名を入力">
       </div>
 
       <!-- システム管理者キーワード -->
