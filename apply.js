@@ -124,6 +124,9 @@ function handleRoleOrTypeChange() {
 
 async function submitApplication(event) {
   event.preventDefault();
+  
+  // ★ ここで必ずポップアップが出るかテスト
+  alert("申請ボタンがクリックされました！通信を開始します。");
 
   const roleSelect = document.getElementById("role");
   const role = roleSelect ? roleSelect.value : "";
@@ -132,7 +135,6 @@ async function submitApplication(event) {
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
 
-  // GAS側のバリデーション要件を満たすため、fullNameにはLINE表示名を自動設定
   const payload = {
     action: "applyRole",
     lineUserId: currentLineUserId,
@@ -155,6 +157,7 @@ async function submitApplication(event) {
     });
     
     const result = await response.json();
+    alert("GASからの応答: " + JSON.stringify(result));
 
     if (result.status === "success") {
       showAppMessage(result.message, "success");
@@ -165,7 +168,7 @@ async function submitApplication(event) {
     }
   } catch (err) {
     console.error("送信エラー:", err);
-    showAppMessage("送信中に通信エラーが発生しました。", "error");
+    alert("通信エラーが発生しました: " + err.toString());
     const btn = document.getElementById("submit-btn");
     if (btn) btn.disabled = false;
   }
