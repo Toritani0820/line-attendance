@@ -1,10 +1,8 @@
 let currentLineUserId = "";
+let isSystemAdminExist = false; // システム管理者が存在するかどうかのフラグ
 
 window.onload = async function() {
   try {
-    // config.jsで定義された権限からセレクトボックスを動的生成
-    initRoleSelect();
-
     // config.jsで設定したLIFF IDを使用
     await liff.init({ liffId: CONFIG.LIFF_ID });
     
@@ -22,7 +20,7 @@ window.onload = async function() {
       nameInput.value = profile.displayName;
     }
 
-    // サーバへステータス問い合わせ
+    // サーバへステータス問い合わせ（ここでシステムの有無が判定され、未登録ならセレクトボックス生成へ進む）
     await fetchUserStatus(currentLineUserId);
 
   } catch (err) {
@@ -32,7 +30,40 @@ window.onload = async function() {
 };
 
 /**
- * config.jsの定義から希望権限のセレクトボックスを逆順で生成する
+ * ステータス取得処理
+ */
+async function fetchUserStatus(lineUserId) {
+  const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+
+  try {
+    const response = await fetch(url);
+    const result = await response.json();
+
+    if (result.status === "success") {
+      // サーバーから返されたシステム管理者の有無を保持
+      isSystemAdminExist = result.systemAdminExists;
+
+      document.getElementById("status-display").innerText = 
+        `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
+
+      // 「未登録」の場合はここでセレクトボックスを初期化し、登録カードを表示する
+      if (result.role === "未登録") {
+        initRoleSelect();
+        document.getElementById("registration-card").classList.remove("hidden");
+      }
+    } else {
+      document.getElementById("status-display").innerText = "ステータスの取得に失敗しました。";
+    }
+  } catch (err) {
+    console.error("通信エラー:", err);
+    document.getElementById("status-display").innerText = "通信エラーが発生しました。";
+  }
+}
+
+/**
+ * 権限のセレクトボックスを動的生成する
+ * - システム管理者が未設定の場合: 「システム管理者」のみ表示
+ * - システム管理者が設定済みの場合: 「利用禁止」を除外し、逆順で表示
  */
 function initRoleSelect() {
   const roleSelect = document.getElementById("role");
@@ -40,17 +71,24 @@ function initRoleSelect() {
 
   roleSelect.innerHTML = "";
 
-  // 定義のエントリ配列を取得し、reverse()で逆順に並び替える
-  const entries = Object.entries(CONFIG.ROLES).reverse();
-
-  for (const [key, value] of entries) {
-    // 【利用禁止】は新規申請の選択肢から除外する
-    if (value === CONFIG.ROLES.BANNED) continue;
-
+  if (!isSystemAdminExist) {
+    // システム管理者がまだ誰もいない場合 ➔ 「システム管理者」のみ
     const option = document.createElement("option");
-    option.value = value;
-    option.textContent = value;
+    option.value = CONFIG.ROLES.SYSTEM_ADMIN;
+    option.textContent = CONFIG.ROLES.SYSTEM_ADMIN;
     roleSelect.appendChild(option);
+  } else {
+    // システム管理者が既にいる場合 ➔ 利用禁止を除外し、逆順
+    const entries = Object.entries(CONFIG.ROLES).reverse();
+
+    for (const [key, value] of entries) {
+      if (value === CONFIG.ROLES.BANNED) continue;
+
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = value;
+      roleSelect.appendChild(option);
+    }
   }
 
   // 初期ロード時にも表示制御を適用
@@ -71,52 +109,22 @@ function handleRoleOrTypeChange() {
   const fieldKeyword = document.getElementById("field-keyword");
 
   // いったんすべて非表示にする
-  fieldAppType.classList.add("hidden");
-  fieldTargetHousehold.classList.add("hidden");
-  fieldKeyword.classList.add("hidden");
+  if (fieldAppType) fieldAppType.classList.add("hidden");
+  if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
+  if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   // 権限ごとの表示制御
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    // ① システム管理者: 登録用キーワードを表示
-    fieldKeyword.classList.remove("hidden");
+    if (fieldKeyword) fieldKeyword.classList.remove("hidden");
   }
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
-    // ③ 世帯管理者: 申請種別を表示し、その内容で分岐
-    fieldAppType.classList.remove("hidden");
+    if (fieldAppType) fieldAppType.classList.remove("hidden");
     if (appType === "メンバー追加") {
-      fieldTargetHousehold.classList.remove("hidden");
+      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
     }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
-    // ④ 予定回答者・閲覧者: 対象世帯IDのみ
-    fieldTargetHousehold.classList.remove("hidden");
-  }
-}
-
-/**
- * ステータス取得処理
- */
-async function fetchUserStatus(lineUserId) {
-  const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
-
-  try {
-    const response = await fetch(url);
-    const result = await response.json();
-
-    if (result.status === "success") {
-      document.getElementById("status-display").innerText = 
-        `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
-
-      // 「未登録」の場合は申請フォームを表示する
-      if (result.role === "未登録") {
-        document.getElementById("registration-card").classList.remove("hidden");
-      }
-    } else {
-      document.getElementById("status-display").innerText = "ステータスの取得に失敗しました。";
-    }
-  } catch (err) {
-    console.error("通信エラー:", err);
-    document.getElementById("status-display").innerText = "通信エラーが発生しました。";
+    if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
   }
 }
 
