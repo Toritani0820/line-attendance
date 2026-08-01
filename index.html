@@ -13,7 +13,7 @@
 <body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col justify-between">
 
     <div class="max-w-md w-full mx-auto p-4">
-        <!-- ① ヘッダーは機能名のみ -->
+        <!-- ヘッダーは機能名のみ -->
         <header class="mb-6 text-center">
             <h1 class="text-xl font-bold text-gray-900">利用申請・マイページ</h1>
         </header>
@@ -31,15 +31,21 @@
             <h2 class="text-lg font-semibold mb-4 text-gray-800">新規利用・権限申請</h2>
             
             <form onsubmit="submitApplication(event)" class="space-y-4">
-                <!-- 申請者名 -->
+                <!-- LINE表示名（確認用） -->
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">申請者名（LINE表示名）</label>
-                    <input type="text" id="applicantName" readonly class="w-full px-3 py-2 border rounded bg-gray-100 text-sm">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">LINE表示名</label>
+                    <input type="text" id="lineDisplayName" readonly class="w-full px-3 py-2 border rounded bg-gray-100 text-sm">
+                </div>
+
+                <!-- 氏名入力欄 -->
+                <div>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">氏名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="fullName" required placeholder="フルネームを入力してください" class="w-full px-3 py-2 border rounded text-sm bg-white">
                 </div>
 
                 <!-- 希望権限 -->
                 <div>
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">希望権限</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">希望権限 <span class="text-red-500">*</span></label>
                     <select id="role" onchange="handleRoleOrTypeChange()" class="w-full px-3 py-2 border rounded text-sm bg-white">
                         <!-- JSで動的生成 -->
                     </select>
@@ -50,19 +56,25 @@
                     <label class="block text-xs font-semibold text-gray-600 mb-1">申請種別</label>
                     <select id="applicationType" onchange="handleRoleOrTypeChange()" class="w-full px-3 py-2 border rounded text-sm bg-white">
                         <option value="新規登録">新規登録</option>
-                        <option value="メンバー追加">メンバー追加</option>
+                        <option value="管理者追加">管理者追加</option>
                     </select>
                 </div>
 
                 <!-- 対象世帯ID -->
                 <div id="field-targetHouseholdId" class="hidden">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">対象世帯ID</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">世帯ID <span class="text-red-500">*</span></label>
                     <input type="text" id="targetHouseholdId" placeholder="世帯IDを入力してください" class="w-full px-3 py-2 border rounded text-sm">
+                </div>
+
+                <!-- 世帯名（新規登録時のみ） -->
+                <div id="field-householdName" class="hidden">
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">世帯名 <span class="text-red-500">*</span></label>
+                    <input type="text" id="householdName" placeholder="例: 山田家" class="w-full px-3 py-2 border rounded text-sm">
                 </div>
 
                 <!-- システム管理者キーワード -->
                 <div id="field-keyword" class="hidden">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">システム管理者キーワード</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">システム管理者キーワード <span class="text-red-500">*</span></label>
                     <input type="password" id="adminKeyword" placeholder="キーワードを入力" class="w-full px-3 py-2 border rounded text-sm">
                 </div>
 
@@ -75,11 +87,8 @@
     </div>
 
     <!-- 外部スクリプト読み込み -->
-    <!-- 1. LIFF SDK -->
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-    <!-- 2. 設定ファイル -->
     <script src="config.js"></script>
-    <!-- 3. メイン処理 -->
     <script src="apply.js"></script>
 </body>
 </html>
