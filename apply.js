@@ -20,12 +20,12 @@ window.onload = async function() {
       nameInput.value = profile.displayName;
     }
 
-    // サーバへステータス問い合わせ（ここでシステムの有無が判定され、未登録ならセレクトボックス生成へ進む）
+    // サーバへステータス問い合わせ
     await fetchUserStatus(currentLineUserId);
 
   } catch (err) {
     console.error("初期化エラー:", err);
-    document.getElementById("status-display").innerText = "読み込みエラーが発生しました。";
+    showAppMessage("読み込みエラーが発生しました。", "error");
   }
 };
 
@@ -40,7 +40,6 @@ async function fetchUserStatus(lineUserId) {
     const result = await response.json();
 
     if (result.status === "success") {
-      // サーバーから返されたシステム管理者の有無を保持
       isSystemAdminExist = result.systemAdminExists;
 
       document.getElementById("status-display").innerText = 
@@ -52,11 +51,11 @@ async function fetchUserStatus(lineUserId) {
         document.getElementById("registration-card").classList.remove("hidden");
       }
     } else {
-      document.getElementById("status-display").innerText = "ステータスの取得に失敗しました。";
+      showAppMessage("ステータスの取得に失敗しました。", "error");
     }
   } catch (err) {
     console.error("通信エラー:", err);
-    document.getElementById("status-display").innerText = "通信エラーが発生しました。";
+    showAppMessage("通信エラーが発生しました。", "error");
   }
 }
 
@@ -72,13 +71,11 @@ function initRoleSelect() {
   roleSelect.innerHTML = "";
 
   if (!isSystemAdminExist) {
-    // システム管理者がまだ誰もいない場合 ➔ 「システム管理者」のみ
     const option = document.createElement("option");
     option.value = CONFIG.ROLES.SYSTEM_ADMIN;
     option.textContent = CONFIG.ROLES.SYSTEM_ADMIN;
     roleSelect.appendChild(option);
   } else {
-    // システム管理者が既にいる場合 ➔ 利用禁止を除外し、逆順
     const entries = Object.entries(CONFIG.ROLES).reverse();
 
     for (const [key, value] of entries) {
@@ -91,7 +88,6 @@ function initRoleSelect() {
     }
   }
 
-  // 初期ロード時にも表示制御を適用
   handleRoleOrTypeChange();
 }
 
@@ -103,17 +99,14 @@ function handleRoleOrTypeChange() {
   const appTypeSelect = document.getElementById("applicationType");
   const appType = appTypeSelect ? appTypeSelect.value : "";
 
-  // 各フィールドの要素
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
   const fieldKeyword = document.getElementById("field-keyword");
 
-  // いったんすべて非表示にする
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
-  // 権限ごとの表示制御
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
     if (fieldKeyword) fieldKeyword.classList.remove("hidden");
   }
@@ -139,7 +132,6 @@ async function submitApplication(event) {
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
   const keywordInput = document.getElementById("adminKeyword");
 
-  // バックエンドへ送信するペイロードの構築
   const payload = {
     action: "applyRole",
     lineUserId: currentLineUserId,
@@ -159,16 +151,36 @@ async function submitApplication(event) {
     const result = await response.json();
 
     if (result.status === "success") {
-      alert(result.message);
-      location.reload();
+      showAppMessage(`[${CONFIG.APP_NAME}] ${result.message}`, "success");
+      setTimeout(() => location.reload(), 1500);
     } else {
-      alert("エラー: " + result.message);
+      showAppMessage(`[${CONFIG.APP_NAME}] ${result.message}`, "error");
       setButtonState(false);
     }
   } catch (err) {
     console.error("送信エラー:", err);
-    alert("送信中に通信エラーが発生しました。");
+    showAppMessage(`[${CONFIG.APP_NAME}] 送信中に通信エラーが発生しました。`, "error");
     setButtonState(false);
+  }
+}
+
+/**
+ * 画面内にアプリ名付きのメッセージを表示するカスタム通知関数
+ */
+function showAppMessage(message, type = "error") {
+  const msgBox = document.getElementById("app-message-box");
+  if (!msgBox) {
+    alert(message);
+    return;
+  }
+
+  msgBox.innerText = message;
+  msgBox.classList.remove("hidden");
+
+  if (type === "success") {
+    msgBox.className = "p-3 mb-4 rounded text-sm bg-green-100 text-green-700";
+  } else {
+    msgBox.className = "p-3 mb-4 rounded text-sm bg-red-100 text-red-700";
   }
 }
 
