@@ -1,10 +1,18 @@
+// ==========================================
+// apply.js (修正版)
+// ==========================================
+
 let currentLineUserId = "";
 let currentLineDisplayName = "";
 let isSystemAdminExist = false;
 
 window.onload = async function() {
   try {
-    // 1. LIFF初期化
+    if (typeof CONFIG === 'undefined') {
+      showAppMessage("config.js が読み込まれていません。", "error");
+      return;
+    }
+
     await liff.init({ liffId: CONFIG.LIFF_ID });
     
     if (!liff.isLoggedIn()) {
@@ -12,25 +20,38 @@ window.onload = async function() {
       return;
     }
 
-    // 2. プロフィール情報の取得
-    const profile = await liff.getProfile();
-    currentLineUserId = profile.userId;
-    currentLineDisplayName = profile.displayName || "LINEユーザー";
+    try {
+      const profile = await liff.getProfile();
+      currentLineUserId = profile.userId;
+      currentLineDisplayName = profile.displayName || "LINEユーザー";
+    } catch (profileErr) {
+      console.warn("プロフィール取得失敗:", profileErr);
+      currentLineUserId = "FALLBACK_USER_" + Date.now();
+      currentLineDisplayName = "LINEユーザー";
+    }
 
-    // 3. LINE表示名を画面の入力欄にセット
+    // 画面の入力欄にLINE表示名をセット
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
     }
 
-    // 4. 氏名の初期値にLINE表示名をセット（未入力の場合のみ）
+    // 氏名の初期値にLINE表示名をセット（未入力の場合のみ）
     const fullNameInput = document.getElementById("fullName");
     if (fullNameInput && !fullNameInput.value) {
       fullNameInput.value = currentLineDisplayName;
     }
 
-    // 5. ユーザーの現在のステータスを確認
+    // ユーザーの現在の登録ステータスを取得
     await fetchUserStatus(currentLineUserId);
+
+    // 【重要】ボタンに明示的にクリックイベントをリスナー登録する
+    const submitBtn = document.getElementById("submit-btn");
+    if (submitBtn) {
+      submitBtn.addEventListener("click", function(event) {
+        console.log("申請ボタンがクリックされました");
+      });
+    }
 
   } catch (err) {
     console.error("初期化エラー:", err);
@@ -62,11 +83,11 @@ async function fetchUserStatus(lineUserId) {
         if (regCard) regCard.classList.remove("hidden");
       }
     } else {
-      showAppMessage("ステータスの取得に失敗しました: " + result.message, "error");
+      showAppMessage("ステータス取得エラー: " + result.message, "error");
     }
   } catch (err) {
     console.error("通信エラー:", err);
-    showAppMessage("ステータス取得時の通信エラー: " + err.message, "error");
+    showAppMessage("ステータス取得時の通信に失敗しました。", "error");
   }
 }
 
@@ -86,10 +107,8 @@ function initRoleSelect() {
     roleSelect.appendChild(option);
   } else {
     const entries = Object.entries(CONFIG.ROLES).reverse();
-
     for (const [key, value] of entries) {
       if (value === CONFIG.ROLES.BANNED) continue;
-
       const option = document.createElement("option");
       option.value = value;
       option.textContent = value;
@@ -143,7 +162,9 @@ function handleRoleOrTypeChange() {
  * 申請ボタン押下時の処理
  */
 async function submitApplication(event) {
-  event.preventDefault();
+  if (event) event.preventDefault();
+
+  console.log("submitApplication が実行されました");
 
   const roleSelect = document.getElementById("role");
   const role = roleSelect ? roleSelect.value : "";
@@ -172,6 +193,7 @@ async function submitApplication(event) {
 
   try {
     setButtonState(true);
+    showAppMessage("送信中...", "success");
 
     const response = await fetch(CONFIG.GAS_WEB_APP_URL, {
       method: "POST",
@@ -218,6 +240,6 @@ function showAppMessage(message, type = "error") {
  * 送信ボタンの有効・無効切り替え
  */
 function setButtonState(disabled) {
-  const btn = document.querySelector("button[type='submit']");
+  const btn = document.getElementById("submit-btn");
   if (btn) btn.disabled = disabled;
 }
