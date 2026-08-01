@@ -65,7 +65,14 @@ async function fetchUserStatus(lineUserId) {
   try {
     const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
     const response = await fetch(url);
-    const result = await response.json();
+    const responseText = await response.text();
+    
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error("サーバーからの応答形式が不正です:\n" + responseText);
+    }
 
     if (result.status === "success") {
       isSystemAdminExist = result.systemAdminExists;
@@ -85,7 +92,7 @@ async function fetchUserStatus(lineUserId) {
     }
   } catch (err) {
     console.error("通信エラー:", err);
-    showAppMessage("ステータス取得時の通信に失敗しました。", "error");
+    showAppMessage("ステータス取得時の通信に失敗しました:\n" + err.message, "error");
   }
 }
 
@@ -190,7 +197,13 @@ async function submitApplication() {
       body: JSON.stringify(payload)
     });
     
-    const result = await response.json();
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      throw new Error("サーバーからの応答形式が不正です:\n" + responseText);
+    }
 
     if (result.status === "success") {
       showAppMessage(result.message, "success");
@@ -201,7 +214,7 @@ async function submitApplication() {
     }
   } catch (err) {
     console.error("送信エラー:", err);
-    showAppMessage("送信中に通信エラーが発生しました。", "error");
+    showAppMessage("通信エラーが発生しました:\n" + err.message, "error");
     const btn = document.getElementById("submit-btn");
     if (btn) btn.disabled = false;
   }
