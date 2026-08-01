@@ -32,7 +32,7 @@ window.onload = async function() {
 };
 
 /**
- * config.jsの定義から希望権限のセレクトボックスを生成する
+ * config.jsの定義から希望権限のセレクトボックスを逆順で生成する
  */
 function initRoleSelect() {
   const roleSelect = document.getElementById("role");
@@ -40,7 +40,10 @@ function initRoleSelect() {
 
   roleSelect.innerHTML = "";
 
-  for (const [key, value] of Object.entries(CONFIG.ROLES)) {
+  // 定義のエントリ配列を取得し、reverse()で逆順に並び替える
+  const entries = Object.entries(CONFIG.ROLES).reverse();
+
+  for (const [key, value] of entries) {
     // 【利用禁止】は新規申請の選択肢から除外する
     if (value === CONFIG.ROLES.BANNED) continue;
 
