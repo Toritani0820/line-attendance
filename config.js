@@ -1,4 +1,7 @@
 const CONFIG = {
+　　// 表示するアプリ名
+    APP_NAME: "わらべ組・鈴のスケジュール", 
+    
     // GAS関連の設定
     GAS_WEB_APP_URL:"https://script.google.com/macros/s/AKfycbzBwNfjxLijXEhuNd3xEyzeg0BT3XcmAX6CXgBnj3GNldnxOkBAXURQL8jc-vrv5FI_/exec",
     
