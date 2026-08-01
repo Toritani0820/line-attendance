@@ -20,9 +20,32 @@ window.onload = async function() {
     currentLineUserId = profile.userId;
     currentLineDisplayName = profile.displayName || "LINEユーザー";
 
+    // 画面のLINE表示名欄にセット
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
+    }
+
+    // 氏名の初期値にLINE表示名をセット（未入力の場合のみ）
+    const fullNameInput = document.getElementById("fullName");
+    if (fullNameInput && !fullNameInput.value) {
+      fullNameInput.value = currentLineDisplayName;
+    }
+
+    // 各種イベントリスナーの動的バインド
+    const roleSelect = document.getElementById("role");
+    if (roleSelect) {
+      roleSelect.addEventListener("change", handleRoleOrTypeChange);
+    }
+
+    const appTypeSelect = document.getElementById("applicationType");
+    if (appTypeSelect) {
+      appTypeSelect.addEventListener("change", handleRoleOrTypeChange);
+    }
+
+    const form = document.getElementById("apply-form");
+    if (form) {
+      form.addEventListener("submit", submitApplication);
     }
 
     await fetchUserStatus(currentLineUserId);
@@ -124,13 +147,11 @@ function handleRoleOrTypeChange() {
 
 async function submitApplication(event) {
   event.preventDefault();
-  
-  // ★ ここで必ずポップアップが出るかテスト
-  alert("申請ボタンがクリックされました！通信を開始します。");
 
   const roleSelect = document.getElementById("role");
   const role = roleSelect ? roleSelect.value : "";
   const appTypeSelect = document.getElementById("applicationType");
+  const fullNameInput = document.getElementById("fullName");
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
@@ -139,13 +160,19 @@ async function submitApplication(event) {
     action: "applyRole",
     lineUserId: currentLineUserId,
     lineDisplayName: currentLineDisplayName,
-    fullName: currentLineDisplayName, 
+    fullName: fullNameInput ? fullNameInput.value.trim() : "",
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
     householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
+
+  // 氏名入力のバリデーションチェック
+  if (!payload.fullName) {
+    showAppMessage("氏名を入力してください。", "error");
+    return;
+  }
 
   try {
     const btn = document.getElementById("submit-btn");
@@ -157,7 +184,6 @@ async function submitApplication(event) {
     });
     
     const result = await response.json();
-    alert("GASからの応答: " + JSON.stringify(result));
 
     if (result.status === "success") {
       showAppMessage(result.message, "success");
@@ -168,7 +194,7 @@ async function submitApplication(event) {
     }
   } catch (err) {
     console.error("送信エラー:", err);
-    alert("通信エラーが発生しました: " + err.toString());
+    showAppMessage("送信中に通信エラーが発生しました。", "error");
     const btn = document.getElementById("submit-btn");
     if (btn) btn.disabled = false;
   }
