@@ -165,16 +165,18 @@ async function submitApplication(event) {
 }
 
 /**
- * 画面内にアプリ名付きのメッセージを表示するカスタム通知関数
+ * 画面内にアプリ名（改行）メッセージの形式で通知を表示するカスタム関数
  */
 function showAppMessage(message, type = "error") {
   const msgBox = document.getElementById("app-message-box");
   if (!msgBox) {
-    alert(message);
+    // 要素がない場合のフォールバック（alertの場合は \n で改行）
+    alert(`${CONFIG.APP_NAME}\n${message}`);
     return;
   }
 
-  msgBox.innerText = message;
+  // アプリ名を太字ブロックで表示し、その下に改行してメッセージを配置
+  msgBox.innerHTML = `<strong class="block font-bold mb-1">${CONFIG.APP_NAME}</strong><span class="block">${message}</span>`;
   msgBox.classList.remove("hidden");
 
   if (type === "success") {
