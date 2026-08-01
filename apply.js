@@ -2,10 +2,39 @@ let currentLineUserId = "";
 let currentLineDisplayName = "";
 let isSystemAdminExist = false;
 
-window.onload = async function() {
+// 【重要】ページ読み込み時に、LIFFの成否に関わらずイベントを確実に即座にバインドする
+window.onload = function() {
+  setupEventListeners();
+  initializeApp();
+};
+
+/**
+ * ボタンやセレクトボックスのイベント監視を確実に設定する
+ */
+function setupEventListeners() {
+  const roleSelect = document.getElementById("role");
+  if (roleSelect) {
+    roleSelect.addEventListener("change", handleRoleOrTypeChange);
+  }
+
+  const appTypeSelect = document.getElementById("applicationType");
+  if (appTypeSelect) {
+    appTypeSelect.addEventListener("change", handleRoleOrTypeChange);
+  }
+
+  const submitBtn = document.getElementById("submit-btn");
+  if (submitBtn) {
+    submitBtn.addEventListener("click", submitApplication);
+  }
+}
+
+/**
+ * LINE初期化およびユーザーデータの非同期取得
+ */
+async function initializeApp() {
   try {
     if (typeof CONFIG === 'undefined') {
-      alert("config.js が読み込まれていません。");
+      showAppMessage("config.js が読み込まれていません。", "error");
       return;
     }
 
@@ -16,36 +45,24 @@ window.onload = async function() {
       return;
     }
 
-    const profile = await liff.getProfile();
-    currentLineUserId = profile.userId;
-    currentLineDisplayName = profile.displayName || "LINEユーザー";
+    try {
+      const profile = await liff.getProfile();
+      currentLineUserId = profile.userId;
+      currentLineDisplayName = profile.displayName || "LINEユーザー";
+    } catch (profileErr) {
+      console.warn("プロフィール取得フォールバック:", profileErr);
+      currentLineUserId = "USER_" + Date.now();
+      currentLineDisplayName = "LINEユーザー";
+    }
 
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
     }
 
-    // 氏名の初期値にLINE表示名をセット（未入力の場合のみ）
     const fullNameInput = document.getElementById("fullName");
     if (fullNameInput && !fullNameInput.value) {
       fullNameInput.value = currentLineDisplayName;
-    }
-
-    // 各種イベントリスナーの動的バインド
-    const roleSelect = document.getElementById("role");
-    if (roleSelect) {
-      roleSelect.addEventListener("change", handleRoleOrTypeChange);
-    }
-
-    const appTypeSelect = document.getElementById("applicationType");
-    if (appTypeSelect) {
-      appTypeSelect.addEventListener("change", handleRoleOrTypeChange);
-    }
-
-    // 【重要】フォームのsubmitではなく、ボタンのclickイベントを直接監視する
-    const submitBtn = document.getElementById("submit-btn");
-    if (submitBtn) {
-      submitBtn.addEventListener("click", submitApplication);
     }
 
     await fetchUserStatus(currentLineUserId);
@@ -54,7 +71,7 @@ window.onload = async function() {
     console.error("初期化エラー:", err);
     showAppMessage("初期化に失敗しました: " + err.message, "error");
   }
-};
+}
 
 async function fetchUserStatus(lineUserId) {
   try {
@@ -126,7 +143,6 @@ function handleRoleOrTypeChange() {
   const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
-  // すべての条件付きフィールドを一旦隠す
   if (fieldFullName) fieldFullName.classList.add("hidden");
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
@@ -134,11 +150,9 @@ function handleRoleOrTypeChange() {
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    // システム管理者の場合：氏名は非表示、キーワード欄を表示
     if (fieldKeyword) fieldKeyword.classList.remove("hidden");
   }
   else {
-    // システム管理者以外の場合：氏名欄を表示
     if (fieldFullName) fieldFullName.classList.remove("hidden");
 
     if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
@@ -169,7 +183,6 @@ async function submitApplication() {
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
 
-  // システム管理者の場合は氏名欄がないためLINE表示名を自動セット、それ以外は入力値を使用
   const fullNameValue = (role === CONFIG.ROLES.SYSTEM_ADMIN) 
     ? currentLineDisplayName 
     : (fullNameInput ? fullNameInput.value.trim() : "");
@@ -186,15 +199,12 @@ async function submitApplication() {
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
 
-  // 【バリデーション】システム管理者の場合はキーワード入力を必須チェック
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
     if (!payload.keyword) {
       showAppMessage("システム管理者キーワードを入力してください。", "error");
       return;
     }
-  } 
-  // 【バリデーション】システム管理者以外の場合は氏名入力を必須チェック
-  else {
+  } else {
     if (!payload.fullName) {
       showAppMessage("氏名を入力してください。", "error");
       return;
