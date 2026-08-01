@@ -196,6 +196,9 @@ async function submitApplication() {
 }
 
 function showAppMessage(message, type = "error") {
+  // スマホでも確実に見逃さないようポップアップ（alert）を表示する
+  alert(message);
+
   const msgBox = document.getElementById("app-message-box");
   if (!msgBox) return;
 
