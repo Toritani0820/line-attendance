@@ -62,7 +62,7 @@ function handleRoleOrTypeChange() {
 }
 
 /**
- * 申請フォーム送信処理
+ * 申請フォーム送信処理（GASのウェブアプリへ送信）
  */
 async function submitApplication(event) {
   event.preventDefault();
@@ -73,7 +73,7 @@ async function submitApplication(event) {
   const targetHouseholdId = document.getElementById("targetHouseholdId") ? document.getElementById("targetHouseholdId").value : "";
   const adminKeyword = document.getElementById("adminKeyword") ? document.getElementById("adminKeyword").value : "";
 
-  // LIFFから取得したLINEユーザーID（環境に合わせて調整してください）
+  // LIFFなどから取得したLINEユーザーID
   const lineUserId = window.currentLineUserId || "TEST_LINE_USER_ID";
 
   const payload = {
@@ -85,12 +85,28 @@ async function submitApplication(event) {
     keyword: adminKeyword
   };
 
+  // ※デプロイしたGASの「ウェブアプリのURL」に書き換えてください
+  const GAS_API_URL = "https://script.google.com/macros/s/【あなたのGASのウェブアプリURL】/exec";
+
   try {
-    // TODO: GASのAPIエンドポイントへ送信する処理
-    console.log("送信データ:", payload);
-    alert("申請処理を実行しました。");
+    const response = await fetch(GAS_API_URL, {
+      method: "POST",
+      body: JSON.stringify(payload)
+    });
+
+    const result = await response.json();
+
+    // GAS側から返却されたステータスに応じて処理
+    if (result.status === "success") {
+      alert(result.message || "申請を受け付けました。");
+      location.reload();
+    } else {
+      // キーワード違いのエラーメッセージやロック中の警告を表示
+      alert(result.message);
+    }
+
   } catch (error) {
-    console.error("送信エラー:", error);
-    alert("通信エラーが発生しました。");
+    console.error("通信エラー:", error);
+    alert("サーバーとの通信に失敗しました。時間をおいて再度お試しください。");
   }
 }
