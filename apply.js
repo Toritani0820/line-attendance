@@ -41,8 +41,8 @@ async function initializeApp() {
     const profile = await liff.getProfile();
     currentLineUserId = profile.userId;
     currentLineDisplayName = profile.displayName || "LINEユーザー";
-    
-    // LINE表示名のセットのみ行う（フォーカス・選択処理は削除）
+
+    // LINE表示名の欄に値をセット（読み取り専用のためフォーカス・選択はしない）
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
@@ -133,7 +133,7 @@ function handleRoleOrTypeChange() {
   const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
-  // 1. まずすべての条件付きフィールドを隠す
+  // 1. まずすべての条件付きフィールドを非表示にする
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
   if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
@@ -144,12 +144,14 @@ function handleRoleOrTypeChange() {
     if (fieldKeyword) fieldKeyword.classList.remove("hidden");
   }
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
+    // 世帯管理者の場合は「申請種別」を常時表示
     if (fieldAppType) fieldAppType.classList.remove("hidden");
-    if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
     
-    // 世帯管理者のうち、「新規登録」が選ばれている場合のみ世帯名を表示
+    // 申請種別によって「世帯名」または「世帯ID」を切り替える
     if (appTypeSelect && appTypeSelect.value === "新規登録") {
-      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden"); // 新規登録なら「世帯名」
+    } else {
+      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden"); // 管理者追加なら「世帯ID」
     }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
@@ -192,7 +194,7 @@ async function submitApplication() {
     fullName: fullName,
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
-    targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
+    targetHouseholdId: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "管理者追加") ? (targetHouseholdInput ? targetHouseholdInput.value.trim() : "") : ((role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) ? (targetHouseholdInput ? targetHouseholdInput.value.trim() : "") : ""),
     householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
