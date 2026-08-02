@@ -78,14 +78,13 @@ async function checkUserStatus(lineUserId) {
   }
 }
 
-// config.js の CONFIG.ROLES を使って正しい権限選択肢を構築
+// 仕様書 6-1 に基づく申請可能なロール一覧（運用管理者はシステム管理者が任命するため除外）
 function loadRoleOptions() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect) return;
 
   const roles = [
     { value: CONFIG.ROLES.SYSTEM_ADMIN, label: CONFIG.ROLES.SYSTEM_ADMIN },
-    { value: CONFIG.ROLES.OPERATION_ADMIN, label: CONFIG.ROLES.OPERATION_ADMIN },
     { value: CONFIG.ROLES.HOUSEHOLD_ADMIN, label: CONFIG.ROLES.HOUSEHOLD_ADMIN },
     { value: CONFIG.ROLES.RESPONDENT, label: CONFIG.ROLES.RESPONDENT },
     { value: CONFIG.ROLES.VIEWER, label: CONFIG.ROLES.VIEWER }
@@ -117,6 +116,7 @@ function setupFormDynamicFields() {
   }
 }
 
+// 仕様書 5-2 に従ったロール別の入力項目表示制御
 function updateFieldVisibility() {
   const role = document.getElementById("role").value;
   const fieldAppType = document.getElementById("field-applicationType");
@@ -125,15 +125,20 @@ function updateFieldVisibility() {
 
   if (!fieldAppType) return;
 
-  // 初期化としてすべて非表示
+  // すべて一度非表示にする
   fieldAppType.classList.add("hidden");
   fieldHouseholdId.classList.add("hidden");
   if (fieldAdminKeyword) fieldAdminKeyword.classList.add("hidden");
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
+    // システム管理者：キーワード入力のみ必須
     if (fieldAdminKeyword) fieldAdminKeyword.classList.remove("hidden");
-  } else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+  } else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
+    // 世帯管理者：申請区分（新規登録/管理者追加）と世帯IDが必須
     fieldAppType.classList.remove("hidden");
+    fieldHouseholdId.classList.remove("hidden");
+  } else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+    // 予定回答者・閲覧者：世帯IDのみ必須（申請区分は不要）
     fieldHouseholdId.classList.remove("hidden");
   }
 }
@@ -148,8 +153,9 @@ async function submitApplication() {
     return;
   }
 
+  // アクション名はGAS側と一致する "applyRole" を指定
   const formData = {
-    action: "submitApplication",
+    action: "applyRole",
     lineUserId: currentLineUserId,
     lineDisplayName: currentLineDisplayName,
     fullName: fullName,
