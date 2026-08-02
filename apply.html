@@ -27,9 +27,13 @@
     <h3>利用申請 / 管理者・権限設定</h3>
     <form id="reg-form" onsubmit="submitApplication(event)">
       
-      <!-- 共通: 申請者氏名 -->
+      <!-- 共通: LINE表示名（自動取得・フォーカス対象） -->
+      <label>LINE表示名:</label>
+      <input type="text" id="lineDisplayName" readonly style="background-color: #f0f0f0;">
+
+      <!-- 共通: 申請者氏名（初期は空） -->
       <label>申請者氏名:</label>
-      <input type="text" id="applicantName" required placeholder="例: 山田 太郎">
+      <input type="text" id="fullName" required placeholder="例: 山田 太郎">
 
       <!-- 共通: 希望権限 -->
       <label>希望権限:</label>
@@ -39,8 +43,8 @@
       <div id="field-applicationType" class="hidden">
         <label>申請種別:</label>
         <select id="applicationType" onchange="handleRoleOrTypeChange()">
-          <option value="新規世帯">新規世帯</option>
-          <option value="メンバー追加">メンバー追加</option>
+          <option value="新規登録">新規登録</option>
+          <option value="管理者追加">管理者追加</option>
         </select>
       </div>
 
@@ -50,13 +54,19 @@
         <input type="text" id="targetHouseholdId" placeholder="例: HH_01">
       </div>
 
+      <!-- 条件付き: 世帯名（新規登録時のみ使用） -->
+      <div id="field-householdName" class="hidden">
+        <label>世帯名:</label>
+        <input type="text" id="householdName" placeholder="例: 山田家">
+      </div>
+
       <!-- 条件付き: 登録用キーワード（システム管理者の場合のみ使用） -->
       <div id="field-keyword" class="hidden">
         <label>登録用キーワード:</label>
         <input type="password" id="adminKeyword" placeholder="システム管理者登録キーワードを入力">
       </div>
 
-      <button type="submit">申請を送信する</button>
+      <button type="submit" id="submit-btn">申請を送信する</button>
     </form>
   </div>
 
