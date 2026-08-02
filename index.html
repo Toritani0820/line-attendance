@@ -3,95 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>利用申請・マイページ</title>
+  <title>読み込み中...</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 text-gray-800 p-4">
-
-  <div class="max-w-md mx-auto">
-    <!-- マイページ/ステータスカード -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h2 class="text-xl font-bold mb-2">マイページ</h2>
-      <p id="status-display" class="font-medium text-sm text-gray-600">ステータスを確認中...</p>
-    </div>
-
-    <div id="app-message-box" class="hidden mb-4 p-3 rounded text-sm"></div>
-
-    <!-- 未登録 / 申請中の場合のみ表示する申請フォーム -->
-    <div id="registration-card" class="bg-white p-6 rounded-lg shadow-md hidden">
-      <h3 class="text-lg font-bold mb-4">利用申請 / 管理者・権限設定</h3>
-      
-      <form id="reg-form" onsubmit="event.preventDefault(); submitApplication();">
-        
-        <!-- LINE表示名（読み取り専用） -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">LINE表示名</label>
-          <input type="text" id="lineDisplayName" readonly class="w-full border border-gray-300 rounded p-2 text-sm bg-gray-100" lang="ja">
-        </div>
-
-        <!-- 申請者氏名 -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">氏名 <span class="text-red-500">*</span></label>
-          <input type="text" id="fullName" required class="w-full border border-gray-300 rounded p-2 text-sm" lang="ja" autocomplete="name" placeholder="例: 山田 太郎">
-        </div>
-
-        <!-- 希望権限 -->
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">希望権限 <span class="text-red-500">*</span></label>
-          <select id="role" class="w-full border border-gray-300 rounded p-2 text-sm bg-white"></select>
-        </div>
-
-        <!-- 条件付き: 申請種別 -->
-        <div id="field-applicationType" class="mb-4 hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-1">申請種別</label>
-          <select id="applicationType" class="w-full border border-gray-300 rounded p-2 text-sm bg-white">
-            <option value="新規登録">新規登録</option>
-            <option value="管理者追加">管理者追加</option>
-          </select>
-        </div>
-
-        <!-- 条件付き: 対象世帯ID -->
-        <div id="field-targetHouseholdId" class="mb-4 hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-1">世帯ID <span class="text-red-500">*</span></label>
-          <input type="text" id="targetHouseholdId" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="世帯IDを入力">
-        </div>
-
-        <!-- 条件付き: 世帯名（新規登録時のみ表示） -->
-        <div id="field-householdName" class="mb-4 hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-1">世帯名 <span class="text-red-500">*</span></label>
-          <input type="text" id="householdName" class="w-full border border-gray-300 rounded p-2 text-sm" lang="ja" placeholder="例: 山田家">
-        </div>
-
-        <!-- 条件付き: 備考 -->
-        <div id="field-note" class="mb-4 hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-1">備考</label>
-          <input type="text" id="note" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="追加申請の理由やメモを入力">
-        </div>
-
-        <!-- 条件付き: 登録用キーワード -->
-        <div id="field-keyword" class="mb-4 hidden">
-          <label class="block text-sm font-medium text-gray-700 mb-1">システム管理者キーワード <span class="text-red-500">*</span></label>
-          <input type="password" id="adminKeyword" class="w-full border border-gray-300 rounded p-2 text-sm" placeholder="キーワードを入力">
-        </div>
-
-        <button type="submit" id="submit-btn" class="w-full bg-blue-600 text-white font-medium p-2 rounded hover:bg-blue-700 transition">申請する</button>
-      </form>
-    </div>
-
-    <!-- 承認済みの場合に表示するスケジュール機能領域 -->
-    <div id="schedule-area" class="bg-white p-6 rounded-lg shadow-md hidden">
-      <h3 class="text-lg font-bold mb-4">スケジュール機能</h3>
-      <p class="text-sm text-gray-600 mb-4">承認が完了しています。以下のボタンからスケジュール確認・出欠回答を行ってください。</p>
-      <!-- ここにスケジュール確認・回答のUIを組み込むことができます -->
-      <div id="schedule-content">
-        <!-- スケジュール一覧などがここに読み込まれます -->
-      </div>
-    </div>
-
+<body class="bg-gray-50 text-gray-800 flex items-center justify-center h-screen">
+  <div class="text-center">
+    <p id="loading-text" class="text-gray-600 font-medium">システムを起動中...</p>
   </div>
 
   <script src="config.js"></script>
-  <script src="apply.js"></script>
+  <script>
+    window.onload = async function() {
+      try {
+        if (typeof CONFIG === 'undefined') {
+          document.getElementById("loading-text").innerText = "config.js が読み込まれていません。";
+          return;
+        }
+
+        await liff.init({ liffId: CONFIG.LIFF_ID });
+        
+        if (!liff.isLoggedIn()) {
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        const lineUserId = profile.userId;
+
+        // サーバーにステータスを問い合わせ
+        const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+        const response = await fetch(url);
+        const result = await response.json();
+
+        if (result.status === "success") {
+          if (result.approvalStatus === "承認済") {
+            // 承認済みの場合はスケジュール画面へジャンプ
+            window.location.replace("schedule.html");
+          } else {
+            // 未登録または申請中の場合は申請画面へジャンプ
+            window.location.replace("apply.html");
+          }
+        } else {
+          document.getElementById("loading-text").innerText = "ステータスの取得に失敗しました: " + result.message;
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById("loading-text").innerText = "初期化エラーが発生しました。";
+      }
+    };
+  </script>
 </body>
 </html>
