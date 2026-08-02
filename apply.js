@@ -47,10 +47,12 @@ async function initializeApp() {
       displayNameInput.value = currentLineDisplayName;
     }
 
-    const fullNameInput = document.getElementById("fullName");
-    if (fullNameInput && !fullNameInput.value) {
-      fullNameInput.value = "";
-    }
+  const fullNameInput = document.getElementById("fullName");
+  if (fullNameInput && !fullNameInput.value) {
+    fullNameInput.value = currentLineDisplayName;
+    fullNameInput.focus();
+    fullNameInput.select(); // 入力欄の文字列が選択（ハイライト）された状態にする
+  }
 
     await fetchUserStatus(currentLineUserId);
 
