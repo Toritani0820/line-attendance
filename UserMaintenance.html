@@ -6,7 +6,28 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body class="bg-light">
-  <div class="container mt-4">
+
+  <!-- 共通上部メニュー -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow-sm">
+    <div class="container-fluid">
+      <a class="navbar-brand fw-bold" href="<?= ScriptApp.getService().getUrl() ?>">スケジュール管理アプリ</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav ms-auto">
+          <li class="nav-item">
+            <a class="nav-link" href="<?= ScriptApp.getService().getUrl() ?>">ホーム（スケジュール）</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link active" href="<?= ScriptApp.getService().getUrl() ?>?page=userMaintenance&userId=<?= currentUserLineUserId ?>">アクセス権メンテナンス</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container my-4">
     <h2 class="mb-4">アクセス権メンテナンス</h2>
 
     <!-- 抽出条件（フィルター）セクション -->
@@ -117,10 +138,14 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    // ログイン中のユーザーのLINE ID（必要に応じて動的に設定してください）
-    const currentUserLineUserId = typeof currentLoginUserId !== 'undefined' ? currentLoginUserId : "";
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentUserLineUserId = "<?= currentUserLineUserId ?>" || urlParams.get('userId') || "";
 
     document.addEventListener("DOMContentLoaded", () => {
+      if (!currentUserLineUserId) {
+        alert("ユーザーIDが確認できません。ホーム画面からやり直してください。");
+        return;
+      }
       loadPermissionsList();
     });
 
@@ -135,6 +160,7 @@
         .withSuccessHandler(response => {
           if (response.status === "error") {
             alert(response.message);
+            window.top.location.href = "<?= ScriptApp.getService().getUrl() ?>?userId=" + encodeURIComponent(currentUserLineUserId);
             return;
           }
 
