@@ -49,12 +49,6 @@ async function initializeApp() {
       displayNameInput.value = currentLineDisplayName;
     }
 
-    // 氏名欄は空のままにする
-    const fullNameInput = document.getElementById("fullName");
-    if (fullNameInput && !fullNameInput.value) {
-      fullNameInput.value = "";
-    }
-
     await fetchUserStatus(currentLineUserId);
 
   } catch (err) {
@@ -85,21 +79,34 @@ async function fetchUserStatus(lineUserId) {
       }
 
       const regCard = document.getElementById("registration-card");
+      const fullNameInput = document.getElementById("fullName");
 
       if (result.role === "未登録") {
         // ① 未登録の場合：新規登録フォームを表示
         isAlreadyRegistered = false;
+        if (fullNameInput) {
+          fullNameInput.value = "";
+          fullNameInput.readOnly = false; // 編集可能
+        }
         initRoleSelect();
         if (regCard) regCard.classList.remove("hidden");
       } 
       else if (result.approvalStatus === "申請中") {
-        // ② 申請中の場合：【以前の仕様】承認待ちのためフォームは非表示にする
+        // ② 申請中の場合：承認待ちのためフォームは非表示
         if (regCard) regCard.classList.add("hidden");
         showAppMessage("現在、管理者の承認待ちです。承認されるまでしばらくお待ちください。", "success");
       } 
       else if (result.approvalStatus === "承認済") {
-        // ③ 承認済みの場合：すでに登録済みのユーザーとして「追加申請モード」を有効化
+        // ③ 承認済みの場合：追加申請モードを有効化
         isAlreadyRegistered = true;
+        
+        // ★過去に登録された氏名を自動セットし、追加申請時は変更不可（readOnly）にする
+        if (fullNameInput && result.memberName) {
+          fullNameInput.value = result.memberName;
+          fullNameInput.readOnly = true;
+          fullNameInput.classList.add("bg-gray-100"); // グレーアウト表記（Tailwind）
+        }
+
         initAdditionalApplyMode();
         if (regCard) regCard.classList.remove("hidden");
       } 
@@ -142,7 +149,7 @@ function initRoleSelect() {
   handleRoleOrTypeChange();
 }
 
-// 承認済みユーザー向けの追加申請モード初期化（追加時は「予定回答者」に固定）
+// 追加申請モード初期化
 function initAdditionalApplyMode() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect || !CONFIG.ROLES) return;
@@ -172,17 +179,20 @@ function handleRoleOrTypeChange() {
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
   const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
+  const fieldNote = document.getElementById("field-note"); // ★備考フィールド
 
   // 1. まずすべての条件付きフィールドを非表示にする
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
   if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
+  if (fieldNote) fieldNote.classList.add("hidden"); // ★非表示初期化
 
   // 2. 状態に応じた表示制御
   if (isAlreadyRegistered) {
-    // 承認済みの追加申請の場合は「世帯ID」を表示
+    // ★承認済みの追加申請の場合は「世帯ID」と「備考欄」を表示
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    if (fieldNote) fieldNote.classList.remove("hidden");
   } else {
     // 初回登録時の制御
     if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
