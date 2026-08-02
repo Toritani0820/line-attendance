@@ -85,9 +85,6 @@ async function checkUserStatus(lineUserId) {
   }
 }
 
-// ロール選択肢の設定
-// ・未設定時：システム管理者のみ選択可能
-// ・設定済時：権限の低い方から順に設定し、初期値を「閲覧者」にする
 function loadRoleOptions() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect) return;
@@ -154,9 +151,7 @@ function updateFieldVisibility() {
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   // 表示制御
-  if (!isSystemAdminExists && role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    if (fieldKeyword) fieldKeyword.classList.remove("hidden");
-  } else if (role === CONFIG.ROLES.SYSTEM_ADMIN || role === CONFIG.ROLES.OPERATION_ADMIN) {
+  if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
     if (fieldKeyword) fieldKeyword.classList.remove("hidden");
   } else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     if (fieldAppType) fieldAppType.classList.remove("hidden");
@@ -165,6 +160,7 @@ function updateFieldVisibility() {
     const appType = appTypeSelect ? appTypeSelect.value : "";
 
     if (appType === "新規登録") {
+      if (fieldHouseholdId) fieldHouseholdId.classList.remove("hidden");
       if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
     } else if (appType === "管理者追加") {
       if (fieldHouseholdId) fieldHouseholdId.classList.remove("hidden");
