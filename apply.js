@@ -133,17 +133,21 @@ function handleRoleOrTypeChange() {
   const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
+  // 1. まずすべての条件付きフィールドを隠す
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
   if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
+  // 2. 権限に応じた表示制御
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
     if (fieldKeyword) fieldKeyword.classList.remove("hidden");
   }
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     if (fieldAppType) fieldAppType.classList.remove("hidden");
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    
+    // 世帯管理者のうち、「新規登録」が選ばれている場合のみ世帯名を表示
     if (appTypeSelect && appTypeSelect.value === "新規登録") {
       if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
     }
