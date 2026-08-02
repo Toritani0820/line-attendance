@@ -1,7 +1,7 @@
 let currentLineUserId = "";
 let currentLineDisplayName = "";
 let isSystemAdminExist = false;
-let isAlreadyRegistered = false; // ★追加：既存登録済みフラグ
+let isAlreadyRegistered = false;
 
 window.onload = function() {
   setupEventListeners();
@@ -87,15 +87,25 @@ async function fetchUserStatus(lineUserId) {
       const regCard = document.getElementById("registration-card");
 
       if (result.role === "未登録") {
-        // 初回登録の場合
+        // ① 未登録の場合：新規登録フォームを表示
         isAlreadyRegistered = false;
         initRoleSelect();
         if (regCard) regCard.classList.remove("hidden");
-      } else {
-        // ★すでに登録済みの場合：追加申請モードとして有効化
+      } 
+      else if (result.approvalStatus === "申請中") {
+        // ② 申請中の場合：【以前の仕様】承認待ちのためフォームは非表示にする
+        if (regCard) regCard.classList.add("hidden");
+        showAppMessage("現在、管理者の承認待ちです。承認されるまでしばらくお待ちください。", "success");
+      } 
+      else if (result.approvalStatus === "承認済") {
+        // ③ 承認済みの場合：すでに登録済みのユーザーとして「追加申請モード」を有効化
         isAlreadyRegistered = true;
         initAdditionalApplyMode();
         if (regCard) regCard.classList.remove("hidden");
+      } 
+      else {
+        // 利用禁止などの場合
+        if (regCard) regCard.classList.add("hidden");
       }
     } else {
       showAppMessage("ステータス取得エラー: " + result.message, "error");
@@ -132,7 +142,7 @@ function initRoleSelect() {
   handleRoleOrTypeChange();
 }
 
-// ★追加申請モード時の初期化（追加時は「予定回答者」に固定）
+// 承認済みユーザー向けの追加申請モード初期化（追加時は「予定回答者」に固定）
 function initAdditionalApplyMode() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect || !CONFIG.ROLES) return;
@@ -140,14 +150,13 @@ function initAdditionalApplyMode() {
   roleSelect.innerHTML = "";
   const option = document.createElement("option");
   option.value = CONFIG.ROLES.RESPONDENT;
-  option.textContent = "予定回答者（追加申請）";
+  option.textContent = "予定回答者（別世帯への追加申請）";
   roleSelect.appendChild(option);
-  roleSelect.disabled = true; // 変更不可に固定
+  roleSelect.disabled = true;
 
-  // カードのタイトルなどを「追加申請」用に変更する配慮
   const formTitle = document.querySelector("#registration-card h3");
   if (formTitle) {
-    formTitle.textContent = "別世帯への追加参加申請（予定回答者）";
+    formTitle.textContent = "別世帯への追加参加申請";
   }
 
   handleRoleOrTypeChange();
@@ -172,7 +181,7 @@ function handleRoleOrTypeChange() {
 
   // 2. 状態に応じた表示制御
   if (isAlreadyRegistered) {
-    // 既存登録済みの場合は「世帯ID」と、後述する「備考欄」を表示する
+    // 承認済みの追加申請の場合は「世帯ID」を表示
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
   } else {
     // 初回登録時の制御
@@ -200,7 +209,7 @@ async function submitApplication() {
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
-  const noteInput = document.getElementById("note"); // ★追加：備考欄要素（HTML側に要追加）
+  const noteInput = document.getElementById("note");
   
   const fullNameInput = document.getElementById("fullName");
   const fullName = fullNameInput ? fullNameInput.value.trim() : "";
@@ -210,7 +219,6 @@ async function submitApplication() {
     return;
   }
 
-  // 世帯IDの入力チェック
   if (isAlreadyRegistered || role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     if (targetHouseholdInput && !targetHouseholdInput.value.trim()) {
       showAppMessage("世帯IDを入力してください。", "error");
@@ -218,7 +226,6 @@ async function submitApplication() {
     }
   }
 
-  // 新規登録時は世帯名も必須
   if (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録") {
     if (householdNameInput && !householdNameInput.value.trim()) {
       showAppMessage("世帯名を入力してください。", "error");
@@ -241,7 +248,7 @@ async function submitApplication() {
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
     householdName: (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (!isAlreadyRegistered && role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : "",
-    note: noteInput ? noteInput.value.trim() : "" // ★追加：備考パラメータ
+    note: noteInput ? noteInput.value.trim() : ""
   };
 
   try {
