@@ -41,13 +41,11 @@ async function initializeApp() {
     const profile = await liff.getProfile();
     currentLineUserId = profile.userId;
     currentLineDisplayName = profile.displayName || "LINEユーザー";
-
-    // LINE表示名の欄に値をセットし、フォーカス＆選択状態にする
+    
+    // LINE表示名のセットのみ行う（フォーカス・選択処理は削除）
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
-      displayNameInput.focus();
-      displayNameInput.select();
     }
 
     // 氏名欄は空のままにする
