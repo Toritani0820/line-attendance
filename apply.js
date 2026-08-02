@@ -42,23 +42,19 @@ async function initializeApp() {
     currentLineUserId = profile.userId;
     currentLineDisplayName = profile.displayName || "LINEユーザー";
 
+    // LINE表示名の欄に値をセットし、フォーカス＆選択状態にする
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
+      displayNameInput.focus();
+      displayNameInput.select();
     }
-    
-  // 氏名欄は空にする
-  const fullNameInput = document.getElementById("fullName");
-  if (fullNameInput && !fullNameInput.value) {
-    fullNameInput.value = "";
-  }
 
-  // LINE表示名の欄にフォーカスし、選択状態にする
-  const displayNameInput = document.getElementById("lineDisplayName");
-  if (displayNameInput) {
-    displayNameInput.focus();
-    displayNameInput.select();
-  }
+    // 氏名欄は空のままにする
+    const fullNameInput = document.getElementById("fullName");
+    if (fullNameInput && !fullNameInput.value) {
+      fullNameInput.value = "";
+    }
 
     await fetchUserStatus(currentLineUserId);
 
@@ -136,10 +132,12 @@ function handleRoleOrTypeChange() {
   const appTypeSelect = document.getElementById("applicationType");
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
+  const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
 
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
+  if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
@@ -148,6 +146,9 @@ function handleRoleOrTypeChange() {
   else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
     if (fieldAppType) fieldAppType.classList.remove("hidden");
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    if (appTypeSelect && appTypeSelect.value === "新規登録") {
+      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+    }
   } 
   else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
@@ -159,6 +160,7 @@ async function submitApplication() {
   const role = roleSelect ? roleSelect.value : "";
   const appTypeSelect = document.getElementById("applicationType");
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
+  const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
   
   const fullNameInput = document.getElementById("fullName");
@@ -167,6 +169,13 @@ async function submitApplication() {
   if (!fullName) {
     showAppMessage("氏名を入力してください。", "error");
     return;
+  }
+
+  if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録") {
+    if (householdNameInput && !householdNameInput.value.trim()) {
+      showAppMessage("世帯名を入力してください。", "error");
+      return;
+    }
   }
 
   if (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput && !keywordInput.value.trim()) {
@@ -182,6 +191,7 @@ async function submitApplication() {
     role: role,
     applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
+    householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
     keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
   };
 
