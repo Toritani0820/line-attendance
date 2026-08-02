@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <div class="container mt-4">
+    <h2 class="mb-4">アクセス権メンテナンス</h2>
+
+    <!-- 抽出条件（フィルター）セクション -->
+    <div class="card p-3 mb-4 shadow-sm">
+      <h5 class="card-title">抽出条件</h5>
+      <div class="row g-3">
+        <div class="col-md-3">
+          <label class="form-label">アクセス権（ロール）</label>
+          <select id="filterRole" class="form-select">
+            <option value="">すべて</option>
+            <option value="システム管理者">システム管理者</option>
+            <option value="運用管理者">運用管理者</option>
+            <option value="世帯管理者">世帯管理者</option>
+            <option value="予定回答者">予定回答者</option>
+            <option value="閲覧者">閲覧者</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">承認状態</label>
+          <select id="filterApprovalStatus" class="form-select">
+            <option value="">すべて</option>
+            <option value="承認済">承認済</option>
+            <option value="利用禁止">利用禁止</option>
+            <option value="申請中">申請中</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">対象世帯ID</label>
+          <input type="text" id="filterHouseholdId" class="form-control" placeholder="世帯IDを入力（空欄でALL）">
+        </div>
+        <div class="col-md-3 d-flex align-items-end">
+          <button class="btn btn-primary w-100" onclick="loadPermissionsList()">検索・更新</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ユーザー一覧テーブル セクション -->
+    <div class="card shadow-sm">
+      <div class="table-responsive">
+        <table class="table table-striped table-bordered align-middle mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th>氏名</th>
+              <th>LINE表示名</th>
+              <th>アクセス権</th>
+              <th>申請種別</th>
+              <th>世帯ID</th>
+              <th>承認状態</th>
+              <th>利用開始日</th>
+              <th>運用終了日</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="permissionTableBody">
+            <!-- 動的描画 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 編集モーダル -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">アクセス権の変更</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="editLineUserId">
+          <input type="hidden" id="editTargetHouseholdId">
+          
+          <p>対象者: <span id="editMemberName" class="fw-bold"></span></p>
+
+          <div class="mb-3">
+            <label class="form-label">承認ステータス</label>
+            <select id="editApprovalStatus" class="form-select">
+              <option value="承認済">承認済</option>
+              <option value="利用禁止">利用禁止</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">アクセス権（ロール）</label>
+            <select id="editRole" class="form-select">
+              <option value="システム管理者">システム管理者</option>
+              <option value="運用管理者">運用管理者</option>
+              <option value="世帯管理者">世帯管理者</option>
+              <option value="予定回答者">予定回答者</option>
+              <option value="閲覧者">閲覧者</option>
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">運用終了日（任意）</label>
+            <input type="date" id="editEndDate" class="form-control">
+            <div class="form-text">空欄の場合は無期限となります。</div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+          <button type="button" class="btn btn-success" onclick="submitPermissionUpdate()">保存する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // ログイン中のユーザーのLINE ID（必要に応じて動的に設定してください）
+    const currentUserLineUserId = typeof currentLoginUserId !== 'undefined' ? currentLoginUserId : "";
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadPermissionsList();
+    });
+
+    function loadPermissionsList() {
+      const filters = {
+        role: document.getElementById("filterRole").value,
+        approvalStatus: document.getElementById("filterApprovalStatus").value,
+        targetHouseholdId: document.getElementById("filterHouseholdId").value.trim()
+      };
+
+      google.script.run
+        .withSuccessHandler(response => {
+          if (response.status === "error") {
+            alert(response.message);
+            return;
+          }
+
+          if (response.currentRole === "世帯管理者") {
+            const householdInput = document.getElementById("filterHouseholdId");
+            householdInput.value = response.currentHouseholdId;
+            householdInput.readOnly = true;
+            householdInput.classList.add("bg-light");
+          }
+
+          renderTable(response.data, currentUserLineUserId);
+        })
+        .withFailureHandler(error => {
+          console.error(error);
+          alert("データの取得に失敗しました。");
+        })
+        .getPermissionsList(currentUserLineUserId, filters);
+    }
+
+    function renderTable(dataList, currentUserId) {
+      const tbody = document.getElementById("permissionTableBody");
+      tbody.innerHTML = "";
+
+      if (dataList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted">該当するユーザーがいません。</td></tr>`;
+        return;
+      }
+
+      dataList.forEach(item => {
+        const isSelf = (item.lineUserId === currentUserId);
+        
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${escapeHTML(item.memberName)}</td>
+          <td>${escapeHTML(item.lineDisplayName)}</td>
+          <td><span class="badge bg-secondary">${escapeHTML(item.role)}</span></td>
+          <td>${escapeHTML(item.applicationType)}</td>
+          <td>${escapeHTML(item.targetHouseholdId)}</td>
+          <td><span class="badge ${item.approvalStatus === '承認済' ? 'bg-success' : (item.approvalStatus === '利用禁止' ? 'bg-danger' : 'bg-warning text-dark')}">${escapeHTML(item.approvalStatus)}</span></td>
+          <td>${escapeHTML(item.startDate)}</td>
+          <td>${escapeHTML(item.endDate || '無期限')}</td>
+          <td>
+            ${isSelf ? '<span class="text-muted small">編集不可(自分)</span>' : 
+              `<button class="btn btn-sm btn-outline-primary" onclick='openEditModal(${JSON.stringify(item)})'>編集</button>`}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function openEditModal(item) {
+      document.getElementById("editLineUserId").value = item.lineUserId;
+      document.getElementById("editTargetHouseholdId").value = item.targetHouseholdId;
+      document.getElementById("editMemberName").textContent = item.memberName;
+      document.getElementById("editApprovalStatus").value = item.approvalStatus;
+      document.getElementById("editRole").value = item.role;
+      document.getElementById("editEndDate").value = item.endDate || "";
+
+      const modal = new bootstrap.Modal(document.getElementById("editModal"));
+      modal.show();
+    }
+
+    function submitPermissionUpdate() {
+      const updateData = {
+        lineUserId: document.getElementById("editLineUserId").value,
+        targetHouseholdId: document.getElementById("editTargetHouseholdId").value,
+        approvalStatus: document.getElementById("editApprovalStatus").value,
+        role: document.getElementById("editRole").value,
+        endDate: document.getElementById("editEndDate").value
+      };
+
+      google.script.run
+        .withSuccessHandler(response => {
+          if (response.status === "error") {
+            alert(response.message);
+            return;
+          }
+          alert(response.message);
+          const modalEl = document.getElementById("editModal");
+          const modal = bootstrap.Modal.getInstance(modalEl);
+          modal.hide();
+          loadPermissionsList();
+        })
+        .withFailureHandler(error => {
+          console.error(error);
+          alert("更新処理に失敗しました。");
+        })
+        .updatePermission(currentUserLineUserId, updateData);
+    }
+
+    function escapeHTML(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
