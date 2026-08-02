@@ -1,5 +1,6 @@
 let currentLineUserId = "";
 let currentLineDisplayName = "";
+let isSystemAdminExists = true; // デフォルトは安全のためtrue
 
 window.onload = async function() {
   await initializeApplyApp();
@@ -49,6 +50,9 @@ async function checkUserStatus(lineUserId) {
       const role = result.role || "未設定";
       const memberName = result.memberName || "";
 
+      // システム管理者が存在するかどうかを取得（未設定時は false）
+      isSystemAdminExists = result.systemAdminExists !== undefined ? result.systemAdminExists : true;
+
       if (approval === "承認済") {
         statusDisplay.innerHTML = `
           現在のステータス: <span class="text-green-600 font-bold">承認済 (${role})</span><br>
@@ -65,7 +69,11 @@ async function checkUserStatus(lineUserId) {
         `;
         regCard.classList.add("hidden");
       } else {
-        statusDisplay.innerHTML = `現在のステータス: <span class="text-gray-600 font-bold">未登録</span>`;
+        let statusHtml = `現在のステータス: <span class="text-gray-600 font-bold">未登録</span>`;
+        if (!isSystemAdminExists) {
+          statusHtml += `<br><span class="text-red-600 font-bold text-xs mt-1 block">※システム管理者が未設定です。初期のシステム管理者登録を行います（登録用キーが必要です）。</span>`;
+        }
+        statusDisplay.innerHTML = statusHtml;
         regCard.classList.remove("hidden");
         loadRoleOptions();
       }
@@ -78,25 +86,44 @@ async function checkUserStatus(lineUserId) {
   }
 }
 
-// 仕様書 6-1 に基づく申請可能なロール一覧（運用管理者はシステム管理者が任命するため除外）
+// ロール選択肢の設定
+// ・未設定時：システム管理者のみ選択可能
+// ・設定済時：権限の低い方から順に設定し、初期値を「閲覧者」にする
 function loadRoleOptions() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect) return;
 
-  const roles = [
-    { value: CONFIG.ROLES.SYSTEM_ADMIN, label: CONFIG.ROLES.SYSTEM_ADMIN },
-    { value: CONFIG.ROLES.HOUSEHOLD_ADMIN, label: CONFIG.ROLES.HOUSEHOLD_ADMIN },
-    { value: CONFIG.ROLES.RESPONDENT, label: CONFIG.ROLES.RESPONDENT },
-    { value: CONFIG.ROLES.VIEWER, label: CONFIG.ROLES.VIEWER }
-  ];
+  roleSelect.innerHTML = '';
 
-  roleSelect.innerHTML = '<option value="">選択してください</option>';
-  roles.forEach(r => {
+  if (!isSystemAdminExists) {
+    // システム管理者未設定時は「システム管理者」のみ選択可能
     const opt = document.createElement("option");
-    opt.value = r.value;
-    opt.textContent = r.label;
+    opt.value = CONFIG.ROLES.SYSTEM_ADMIN;
+    opt.textContent = CONFIG.ROLES.SYSTEM_ADMIN;
+    opt.selected = true;
     roleSelect.appendChild(opt);
-  });
+  } else {
+    // 設定済み時は権限の低い方から順に設定し、初期値を閲覧者にする
+    const roles = [
+      { value: CONFIG.ROLES.VIEWER, label: CONFIG.ROLES.VIEWER },
+      { value: CONFIG.ROLES.RESPONDENT, label: CONFIG.ROLES.RESPONDENT },
+      { value: CONFIG.ROLES.HOUSEHOLD_ADMIN, label: CONFIG.ROLES.HOUSEHOLD_ADMIN },
+      { value: CONFIG.ROLES.OPERATION_ADMIN, label: CONFIG.ROLES.OPERATION_ADMIN },
+      { value: CONFIG.ROLES.SYSTEM_ADMIN, label: CONFIG.ROLES.SYSTEM_ADMIN }
+    ];
+
+    roles.forEach(r => {
+      const opt = document.createElement("option");
+      opt.value = r.value;
+      opt.textContent = r.label;
+      if (r.value === CONFIG.ROLES.VIEWER) {
+        opt.selected = true;
+      }
+      roleSelect.appendChild(opt);
+    });
+  }
+
+  updateFieldVisibility();
 }
 
 function setupFormDynamicFields() {
@@ -116,30 +143,41 @@ function setupFormDynamicFields() {
   }
 }
 
-// 仕様書 5-2 に従ったロール別の入力項目表示制御
+// ロール別・申請区分別の入力項目表示制御
 function updateFieldVisibility() {
-  const role = document.getElementById("role").value;
+  const roleInput = document.getElementById("role");
+  if (!roleInput) return;
+  const role = roleInput.value;
+
   const fieldAppType = document.getElementById("field-applicationType");
+  const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldHouseholdId = document.getElementById("field-targetHouseholdId");
   const fieldAdminKeyword = document.getElementById("field-adminKeyword");
 
-  if (!fieldAppType) return;
-
   // すべて一度非表示にする
-  fieldAppType.classList.add("hidden");
-  fieldHouseholdId.classList.add("hidden");
+  if (fieldAppType) fieldAppType.classList.add("hidden");
+  if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
+  if (fieldHouseholdId) fieldHouseholdId.classList.add("hidden");
   if (fieldAdminKeyword) fieldAdminKeyword.classList.add("hidden");
 
-  if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    // システム管理者：キーワード入力のみ必須
+  if (!isSystemAdminExists && role === CONFIG.ROLES.SYSTEM_ADMIN) {
+    // システム管理者未設定時もキーワード確認（入力項目）を表示
+    if (fieldAdminKeyword) fieldAdminKeyword.classList.remove("hidden");
+  } else if (role === CONFIG.ROLES.SYSTEM_ADMIN || role === CONFIG.ROLES.OPERATION_ADMIN) {
     if (fieldAdminKeyword) fieldAdminKeyword.classList.remove("hidden");
   } else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
-    // 世帯管理者：申請区分（新規登録/管理者追加）と世帯IDが必須
-    fieldAppType.classList.remove("hidden");
-    fieldHouseholdId.classList.remove("hidden");
+    if (fieldAppType) fieldAppType.classList.remove("hidden");
+
+    const appTypeSelect = document.getElementById("applicationType");
+    const appType = appTypeSelect ? appTypeSelect.value : "";
+
+    if (appType === "新規登録") {
+      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+    } else if (appType === "管理者追加") {
+      if (fieldHouseholdId) fieldHouseholdId.classList.remove("hidden");
+    }
   } else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
-    // 予定回答者・閲覧者：世帯IDのみ必須（申請区分は不要）
-    fieldHouseholdId.classList.remove("hidden");
+    if (fieldHouseholdId) fieldHouseholdId.classList.remove("hidden");
   }
 }
 
@@ -153,7 +191,6 @@ async function submitApplication() {
     return;
   }
 
-  // アクション名はGAS側と一致する "applyRole" を指定
   const formData = {
     action: "applyRole",
     lineUserId: currentLineUserId,
@@ -161,6 +198,7 @@ async function submitApplication() {
     fullName: fullName,
     role: role,
     applicationType: document.getElementById("applicationType") ? document.getElementById("applicationType").value : "",
+    householdName: document.getElementById("householdName") ? document.getElementById("householdName").value.trim() : "",
     targetHouseholdId: document.getElementById("targetHouseholdId") ? document.getElementById("targetHouseholdId").value.trim() : "",
     adminKeyword: document.getElementById("adminKeyword") ? document.getElementById("adminKeyword").value.trim() : "",
     note: document.getElementById("note") ? document.getElementById("note").value.trim() : ""
