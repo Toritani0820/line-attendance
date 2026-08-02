@@ -43,7 +43,6 @@ async function initializeApp() {
     currentLineUserId = profile.userId;
     currentLineDisplayName = profile.displayName || "LINEユーザー";
 
-    // LINE表示名の欄に値をセット（読み取り専用）
     const displayNameInput = document.getElementById("lineDisplayName");
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
@@ -79,40 +78,38 @@ async function fetchUserStatus(lineUserId) {
       }
 
       const regCard = document.getElementById("registration-card");
+      const scheduleArea = document.getElementById("schedule-area");
       const fullNameInput = document.getElementById("fullName");
 
       if (result.role === "未登録") {
         // ① 未登録の場合：新規登録フォームを表示
         isAlreadyRegistered = false;
+        if (regCard) regCard.classList.remove("hidden");
+        if (scheduleArea) scheduleArea.classList.add("hidden");
+        
         if (fullNameInput) {
           fullNameInput.value = "";
-          fullNameInput.readOnly = false; // 編集可能
+          fullNameInput.readOnly = false;
         }
         initRoleSelect();
-        if (regCard) regCard.classList.remove("hidden");
       } 
       else if (result.approvalStatus === "申請中") {
-        // ② 申請中の場合：承認待ちのためフォームは非表示
+        // ② 申請中の場合：承認待ちメッセージを表示し、フォームは非表示
         if (regCard) regCard.classList.add("hidden");
+        if (scheduleArea) scheduleArea.classList.add("hidden");
         showAppMessage("現在、管理者の承認待ちです。承認されるまでしばらくお待ちください。", "success");
       } 
       else if (result.approvalStatus === "承認済") {
-        // ③ 承認済みの場合：追加申請モードを有効化
+        // ③ 承認済みの場合：申請画面を隠し、スケジュール機能エリアを表示する
         isAlreadyRegistered = true;
-        
-        // ★過去に登録された氏名を自動セットし、追加申請時は変更不可（readOnly）にする
-        if (fullNameInput && result.memberName) {
-          fullNameInput.value = result.memberName;
-          fullNameInput.readOnly = true;
-          fullNameInput.classList.add("bg-gray-100"); // グレーアウト表記（Tailwind）
-        }
+        if (regCard) regCard.classList.add("hidden");
+        if (scheduleArea) scheduleArea.classList.remove("hidden");
 
-        initAdditionalApplyMode();
-        if (regCard) regCard.classList.remove("hidden");
+        // 必要に応じてスケジュールデータの取得関数等をここで実行
       } 
       else {
-        // 利用禁止などの場合
         if (regCard) regCard.classList.add("hidden");
+        if (scheduleArea) scheduleArea.classList.add("hidden");
       }
     } else {
       showAppMessage("ステータス取得エラー: " + result.message, "error");
@@ -123,7 +120,6 @@ async function fetchUserStatus(lineUserId) {
   }
 }
 
-// 初回登録用のロールセレクト初期化
 function initRoleSelect() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect || !CONFIG.ROLES) return;
@@ -149,26 +145,6 @@ function initRoleSelect() {
   handleRoleOrTypeChange();
 }
 
-// 追加申請モード初期化
-function initAdditionalApplyMode() {
-  const roleSelect = document.getElementById("role");
-  if (!roleSelect || !CONFIG.ROLES) return;
-
-  roleSelect.innerHTML = "";
-  const option = document.createElement("option");
-  option.value = CONFIG.ROLES.RESPONDENT;
-  option.textContent = "予定回答者（別世帯への追加申請）";
-  roleSelect.appendChild(option);
-  roleSelect.disabled = true;
-
-  const formTitle = document.querySelector("#registration-card h3");
-  if (formTitle) {
-    formTitle.textContent = "別世帯への追加参加申請";
-  }
-
-  handleRoleOrTypeChange();
-}
-
 function handleRoleOrTypeChange() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect) return;
@@ -179,36 +155,28 @@ function handleRoleOrTypeChange() {
   const fieldTargetHousehold = document.getElementById("field-targetHouseholdId");
   const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldKeyword = document.getElementById("field-keyword");
-  const fieldNote = document.getElementById("field-note"); // ★備考フィールド
+  const fieldNote = document.getElementById("field-note");
 
-  // 1. まずすべての条件付きフィールドを非表示にする
   if (fieldAppType) fieldAppType.classList.add("hidden");
   if (fieldTargetHousehold) fieldTargetHousehold.classList.add("hidden");
   if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
-  if (fieldNote) fieldNote.classList.add("hidden"); // ★非表示初期化
+  if (fieldNote) fieldNote.classList.add("hidden");
 
-  // 2. 状態に応じた表示制御
-  if (isAlreadyRegistered) {
-    // ★承認済みの追加申請の場合は「世帯ID」と「備考欄」を表示
+  // 初回登録時の条件分岐
+  if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
+    if (fieldKeyword) fieldKeyword.classList.remove("hidden");
+  }
+  else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
+    if (fieldAppType) fieldAppType.classList.remove("hidden");
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
-    if (fieldNote) fieldNote.classList.remove("hidden");
-  } else {
-    // 初回登録時の制御
-    if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-      if (fieldKeyword) fieldKeyword.classList.remove("hidden");
+    
+    if (appTypeSelect && appTypeSelect.value === "新規登録") {
+      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
     }
-    else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
-      if (fieldAppType) fieldAppType.classList.remove("hidden");
-      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
-      
-      if (appTypeSelect && appTypeSelect.value === "新規登録") {
-        if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
-      }
-    } 
-    else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
-      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
-    }
+  } 
+  else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+    if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
   }
 }
 
@@ -229,21 +197,21 @@ async function submitApplication() {
     return;
   }
 
-  if (isAlreadyRegistered || role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+  if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     if (targetHouseholdInput && !targetHouseholdInput.value.trim()) {
       showAppMessage("世帯IDを入力してください。", "error");
       return;
     }
   }
 
-  if (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録") {
+  if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録") {
     if (householdNameInput && !householdNameInput.value.trim()) {
       showAppMessage("世帯名を入力してください。", "error");
       return;
     }
   }
 
-  if (!isAlreadyRegistered && role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput && !keywordInput.value.trim()) {
+  if (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput && !keywordInput.value.trim()) {
     showAppMessage("システム管理者キーワードを入力してください。", "error");
     return;
   }
@@ -254,10 +222,10 @@ async function submitApplication() {
     lineDisplayName: currentLineDisplayName,
     fullName: fullName,
     role: role,
-    applicationType: (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
+    applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
-    householdName: (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
-    keyword: (!isAlreadyRegistered && role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : "",
+    householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
+    keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : "",
     note: noteInput ? noteInput.value.trim() : ""
   };
 
