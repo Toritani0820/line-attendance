@@ -24,11 +24,9 @@ async function initializeApplyApp() {
     currentLineUserId = profile.userId;
     currentLineDisplayName = profile.displayName || "LINEユーザー";
 
-    // LINE表示名を設定
     const nameInput = document.getElementById("lineDisplayName");
     if (nameInput) nameInput.value = currentLineDisplayName;
 
-    // サーバーに現在のステータスを問い合わせ
     await checkUserStatus(currentLineUserId);
 
   } catch (err) {
@@ -55,14 +53,10 @@ async function checkUserStatus(lineUserId) {
         statusDisplay.innerHTML = `
           現在のステータス: <span class="text-green-600 font-bold">承認済 (${role})</span><br>
           氏名: ${memberName}<br>
-          <span class="text-xs text-gray-500 mt-1 block">すでに承認されています。スケジュール画面へ移動できます。</span>
+          <span class="text-xs text-gray-500 mt-1 block">すでに承認されています。スケジュール画面へ移動します。</span>
         `;
-        // 承認済みの場合はスケジュール画面への案内リンクを表示するなど
         regCard.classList.add("hidden");
-        
-        // 自動でスケジュール画面に飛ばす場合:
-        // window.location.replace("schedule.html");
-
+        window.location.replace("schedule.html");
       } else if (approval === "申請中") {
         statusDisplay.innerHTML = `
           現在のステータス: <span class="text-yellow-600 font-bold">承認待ち（申請中）</span><br>
@@ -84,16 +78,17 @@ async function checkUserStatus(lineUserId) {
   }
 }
 
-// 権限のセレクトボックス初期化
+// config.js の CONFIG.ROLES を使って正しい権限選択肢を構築
 function loadRoleOptions() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect) return;
 
-  // 必要に応じて選択肢を定義
   const roles = [
-    { value: "一般メンバー", label: "一般メンバー" },
-    { value: "世帯代表", label: "世帯代表" },
-    { value: "システム管理者", label: "システム管理者" }
+    { value: CONFIG.ROLES.SYSTEM_ADMIN, label: CONFIG.ROLES.SYSTEM_ADMIN },
+    { value: CONFIG.ROLES.OPERATION_ADMIN, label: CONFIG.ROLES.OPERATION_ADMIN },
+    { value: CONFIG.ROLES.HOUSEHOLD_ADMIN, label: CONFIG.ROLES.HOUSEHOLD_ADMIN },
+    { value: CONFIG.ROLES.RESPONDENT, label: CONFIG.ROLES.RESPONDENT },
+    { value: CONFIG.ROLES.VIEWER, label: CONFIG.ROLES.VIEWER }
   ];
 
   roleSelect.innerHTML = '<option value="">選択してください</option>';
@@ -105,7 +100,6 @@ function loadRoleOptions() {
   });
 }
 
-// フォームの入力項目動的切り替え
 function setupFormDynamicFields() {
   const roleSelect = document.getElementById("role");
   const appTypeSelect = document.getElementById("applicationType");
@@ -125,39 +119,25 @@ function setupFormDynamicFields() {
 
 function updateFieldVisibility() {
   const role = document.getElementById("role").value;
-  const appType = document.getElementById("applicationType") ? document.getElementById("applicationType").value : "新規登録";
-
   const fieldAppType = document.getElementById("field-applicationType");
   const fieldHouseholdId = document.getElementById("field-targetHouseholdId");
-  const fieldHouseholdName = document.getElementById("field-householdName");
-  const fieldNote = document.getElementById("field-note");
-  const fieldKeyword = document.getElementById("field-keyword");
+  const fieldAdminKeyword = document.getElementById("field-adminKeyword");
 
-  // すべて一旦非課税・非表示にリセット
+  if (!fieldAppType) return;
+
+  // 初期化としてすべて非表示
   fieldAppType.classList.add("hidden");
   fieldHouseholdId.classList.add("hidden");
-  fieldHouseholdName.classList.add("hidden");
-  fieldNote.classList.add("hidden");
-  fieldKeyword.classList.add("hidden");
+  if (fieldAdminKeyword) fieldAdminKeyword.classList.add("hidden");
 
-  if (role === "一般メンバー") {
+  if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
+    if (fieldAdminKeyword) fieldAdminKeyword.classList.remove("hidden");
+  } else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     fieldAppType.classList.remove("hidden");
-    fieldNote.classList.remove("hidden");
-    if (appType === "新規登録") {
-      fieldHouseholdId.classList.remove("hidden");
-    } else {
-      fieldHouseholdId.classList.remove("hidden");
-    }
-  } else if (role === "世帯代表") {
-    fieldHouseholdName.classList.remove("hidden");
-    fieldNote.classList.remove("hidden");
-  } else if (role === "システム管理者") {
-    fieldKeyword.classList.remove("hidden");
-    fieldNote.classList.remove("hidden");
+    fieldHouseholdId.classList.remove("hidden");
   }
 }
 
-// 申請送信処理
 async function submitApplication() {
   const submitBtn = document.getElementById("submit-btn");
   const fullName = document.getElementById("fullName").value.trim();
@@ -176,9 +156,8 @@ async function submitApplication() {
     role: role,
     applicationType: document.getElementById("applicationType") ? document.getElementById("applicationType").value : "",
     targetHouseholdId: document.getElementById("targetHouseholdId") ? document.getElementById("targetHouseholdId").value.trim() : "",
-    householdName: document.getElementById("householdName") ? document.getElementById("householdName").value.trim() : "",
-    note: document.getElementById("note") ? document.getElementById("note").value.trim() : "",
-    adminKeyword: document.getElementById("adminKeyword") ? document.getElementById("adminKeyword").value.trim() : ""
+    adminKeyword: document.getElementById("adminKeyword") ? document.getElementById("adminKeyword").value.trim() : "",
+    note: document.getElementById("note") ? document.getElementById("note").value.trim() : ""
   };
 
   try {
