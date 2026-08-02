@@ -1,6 +1,6 @@
 let currentLineUserId = "";
 let currentLineDisplayName = "";
-let isSystemAdminExists = true; // デフォルトは安全のためtrue
+let isSystemAdminExists = true;
 
 window.onload = async function() {
   await initializeApplyApp();
@@ -50,7 +50,6 @@ async function checkUserStatus(lineUserId) {
       const role = result.role || "未設定";
       const memberName = result.memberName || "";
 
-      // システム管理者が存在するかどうかを取得（未設定時は false）
       isSystemAdminExists = result.systemAdminExists !== undefined ? result.systemAdminExists : true;
 
       if (approval === "承認済") {
@@ -96,14 +95,12 @@ function loadRoleOptions() {
   roleSelect.innerHTML = '';
 
   if (!isSystemAdminExists) {
-    // システム管理者未設定時は「システム管理者」のみ選択可能
     const opt = document.createElement("option");
     opt.value = CONFIG.ROLES.SYSTEM_ADMIN;
     opt.textContent = CONFIG.ROLES.SYSTEM_ADMIN;
     opt.selected = true;
     roleSelect.appendChild(opt);
   } else {
-    // 設定済み時は権限の低い方から順に設定し、初期値を閲覧者にする
     const roles = [
       { value: CONFIG.ROLES.VIEWER, label: CONFIG.ROLES.VIEWER },
       { value: CONFIG.ROLES.RESPONDENT, label: CONFIG.ROLES.RESPONDENT },
@@ -153,6 +150,7 @@ function updateFieldVisibility() {
   const fieldHouseholdName = document.getElementById("field-householdName");
   const fieldHouseholdId = document.getElementById("field-targetHouseholdId");
   const fieldAdminKeyword = document.getElementById("field-adminKeyword");
+  const inputAdminKeyword = document.getElementById("adminKeyword");
 
   // すべて一度非表示にする
   if (fieldAppType) fieldAppType.classList.add("hidden");
@@ -160,9 +158,10 @@ function updateFieldVisibility() {
   if (fieldHouseholdId) fieldHouseholdId.classList.add("hidden");
   if (fieldAdminKeyword) fieldAdminKeyword.classList.add("hidden");
 
+  // システム管理者未設定時、またはシステム管理者・運用管理者の場合にキーワード欄を表示
   if (!isSystemAdminExists && role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    // システム管理者未設定時もキーワード確認（入力項目）を表示
     if (fieldAdminKeyword) fieldAdminKeyword.classList.remove("hidden");
+    if (inputAdminKeyword && !fieldAdminKeyword) inputAdminKeyword.classList.remove("hidden"); // フォールバック
   } else if (role === CONFIG.ROLES.SYSTEM_ADMIN || role === CONFIG.ROLES.OPERATION_ADMIN) {
     if (fieldAdminKeyword) fieldAdminKeyword.classList.remove("hidden");
   } else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
