@@ -25,17 +25,18 @@
   <!-- 未登録の場合のみ表示する申請フォーム -->
   <div id="registration-card" class="card hidden">
     <h3>利用申請 / 管理者・権限設定</h3>
+
     <form id="reg-form" onsubmit="submitApplication(event)">
       
-      <!-- 共通: LINE表示名（自動取得・フォーカス対象） -->
+      <!-- LINE表示名 -->
       <label>LINE表示名:</label>
-      <input type="text" id="lineDisplayName" readonly style="background-color: #f0f0f0;">
+      <input type="text" id="lineDisplayName" readonly lang="ja" style="background-color: #f0f0f0;">
 
-      <!-- 共通: 申請者氏名（初期は空） -->
+      <!-- 申請者氏名 -->
       <label>申請者氏名:</label>
       <input type="text" id="fullName" required lang="ja" autocomplete="name" placeholder="例: 山田 太郎">
 
-      <!-- 共通: 希望権限 -->
+      <!-- 希望権限 -->
       <label>希望権限:</label>
       <select id="role" onchange="handleRoleOrTypeChange()"></select>
 
@@ -56,8 +57,8 @@
 
       <!-- 条件付き: 世帯名（新規登録時のみ使用） -->
       <div id="field-householdName" class="hidden">
-        <label>世帯名:</label>
-        <input type="text" id="householdName" placeholder="例: 山田家">
+        <label>世帯名 <span style="color:red;">*</span>:</label>
+        <input type="text" id="householdName" lang="ja" placeholder="例: 山田家">
       </div>
 
       <!-- 条件付き: 登録用キーワード（システム管理者の場合のみ使用） -->
