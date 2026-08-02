@@ -46,12 +46,18 @@ async function initializeApp() {
     if (displayNameInput) {
       displayNameInput.value = currentLineDisplayName;
     }
-
+    
+  // 氏名欄は空にする
   const fullNameInput = document.getElementById("fullName");
   if (fullNameInput && !fullNameInput.value) {
-    fullNameInput.value = currentLineDisplayName;
-    fullNameInput.focus();
-    fullNameInput.select(); // 入力欄の文字列が選択（ハイライト）された状態にする
+    fullNameInput.value = "";
+  }
+
+  // LINE表示名の欄にフォーカスし、選択状態にする
+  const displayNameInput = document.getElementById("lineDisplayName");
+  if (displayNameInput) {
+    displayNameInput.focus();
+    displayNameInput.select();
   }
 
     await fetchUserStatus(currentLineUserId);
