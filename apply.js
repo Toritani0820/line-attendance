@@ -1,6 +1,7 @@
 let currentLineUserId = "";
 let currentLineDisplayName = "";
 let isSystemAdminExist = false;
+let isAlreadyRegistered = false; // ★追加：既存登録済みフラグ
 
 window.onload = function() {
   setupEventListeners();
@@ -83,9 +84,17 @@ async function fetchUserStatus(lineUserId) {
         statusDisplay.innerText = `現在の権限ステータス: ${result.role} / ${result.approvalStatus}`;
       }
 
+      const regCard = document.getElementById("registration-card");
+
       if (result.role === "未登録") {
+        // 初回登録の場合
+        isAlreadyRegistered = false;
         initRoleSelect();
-        const regCard = document.getElementById("registration-card");
+        if (regCard) regCard.classList.remove("hidden");
+      } else {
+        // ★すでに登録済みの場合：追加申請モードとして有効化
+        isAlreadyRegistered = true;
+        initAdditionalApplyMode();
         if (regCard) regCard.classList.remove("hidden");
       }
     } else {
@@ -97,6 +106,7 @@ async function fetchUserStatus(lineUserId) {
   }
 }
 
+// 初回登録用のロールセレクト初期化
 function initRoleSelect() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect || !CONFIG.ROLES) return;
@@ -122,6 +132,27 @@ function initRoleSelect() {
   handleRoleOrTypeChange();
 }
 
+// ★追加申請モード時の初期化（追加時は「予定回答者」に固定）
+function initAdditionalApplyMode() {
+  const roleSelect = document.getElementById("role");
+  if (!roleSelect || !CONFIG.ROLES) return;
+
+  roleSelect.innerHTML = "";
+  const option = document.createElement("option");
+  option.value = CONFIG.ROLES.RESPONDENT;
+  option.textContent = "予定回答者（追加申請）";
+  roleSelect.appendChild(option);
+  roleSelect.disabled = true; // 変更不可に固定
+
+  // カードのタイトルなどを「追加申請」用に変更する配慮
+  const formTitle = document.querySelector("#registration-card h3");
+  if (formTitle) {
+    formTitle.textContent = "別世帯への追加参加申請（予定回答者）";
+  }
+
+  handleRoleOrTypeChange();
+}
+
 function handleRoleOrTypeChange() {
   const roleSelect = document.getElementById("role");
   if (!roleSelect) return;
@@ -139,22 +170,26 @@ function handleRoleOrTypeChange() {
   if (fieldHouseholdName) fieldHouseholdName.classList.add("hidden");
   if (fieldKeyword) fieldKeyword.classList.add("hidden");
 
-  // 2. 権限に応じた表示制御
-  if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
-    if (fieldKeyword) fieldKeyword.classList.remove("hidden");
-  }
-  else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
-    // 世帯管理者の場合は「申請種別」と「世帯ID」を常時表示する
-    if (fieldAppType) fieldAppType.classList.remove("hidden");
+  // 2. 状態に応じた表示制御
+  if (isAlreadyRegistered) {
+    // 既存登録済みの場合は「世帯ID」と、後述する「備考欄」を表示する
     if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
-    
-    // さらに「新規登録」の場合は「世帯名」の入力欄も同時に表示する
-    if (appTypeSelect && appTypeSelect.value === "新規登録") {
-      if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+  } else {
+    // 初回登録時の制御
+    if (role === CONFIG.ROLES.SYSTEM_ADMIN) {
+      if (fieldKeyword) fieldKeyword.classList.remove("hidden");
     }
-  } 
-  else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
-    if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    else if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN) {
+      if (fieldAppType) fieldAppType.classList.remove("hidden");
+      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+      
+      if (appTypeSelect && appTypeSelect.value === "新規登録") {
+        if (fieldHouseholdName) fieldHouseholdName.classList.remove("hidden");
+      }
+    } 
+    else if (role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+      if (fieldTargetHousehold) fieldTargetHousehold.classList.remove("hidden");
+    }
   }
 }
 
@@ -165,6 +200,7 @@ async function submitApplication() {
   const targetHouseholdInput = document.getElementById("targetHouseholdId");
   const householdNameInput = document.getElementById("householdName");
   const keywordInput = document.getElementById("adminKeyword");
+  const noteInput = document.getElementById("note"); // ★追加：備考欄要素（HTML側に要追加）
   
   const fullNameInput = document.getElementById("fullName");
   const fullName = fullNameInput ? fullNameInput.value.trim() : "";
@@ -174,8 +210,8 @@ async function submitApplication() {
     return;
   }
 
-  // 世帯IDの入力チェック（世帯管理者、回答者、閲覧者で必須）
-  if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
+  // 世帯IDの入力チェック
+  if (isAlreadyRegistered || role === CONFIG.ROLES.HOUSEHOLD_ADMIN || role === CONFIG.ROLES.RESPONDENT || role === CONFIG.ROLES.VIEWER) {
     if (targetHouseholdInput && !targetHouseholdInput.value.trim()) {
       showAppMessage("世帯IDを入力してください。", "error");
       return;
@@ -183,14 +219,14 @@ async function submitApplication() {
   }
 
   // 新規登録時は世帯名も必須
-  if (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録") {
+  if (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録") {
     if (householdNameInput && !householdNameInput.value.trim()) {
       showAppMessage("世帯名を入力してください。", "error");
       return;
     }
   }
 
-  if (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput && !keywordInput.value.trim()) {
+  if (!isAlreadyRegistered && role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput && !keywordInput.value.trim()) {
     showAppMessage("システム管理者キーワードを入力してください。", "error");
     return;
   }
@@ -201,10 +237,11 @@ async function submitApplication() {
     lineDisplayName: currentLineDisplayName,
     fullName: fullName,
     role: role,
-    applicationType: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
+    applicationType: (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect) ? appTypeSelect.value : "",
     targetHouseholdId: targetHouseholdInput ? targetHouseholdInput.value.trim() : "",
-    householdName: (role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
-    keyword: (role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : ""
+    householdName: (!isAlreadyRegistered && role === CONFIG.ROLES.HOUSEHOLD_ADMIN && appTypeSelect && appTypeSelect.value === "新規登録" && householdNameInput) ? householdNameInput.value.trim() : "",
+    keyword: (!isAlreadyRegistered && role === CONFIG.ROLES.SYSTEM_ADMIN && keywordInput) ? keywordInput.value.trim() : "",
+    note: noteInput ? noteInput.value.trim() : "" // ★追加：備考パラメータ
   };
 
   try {
