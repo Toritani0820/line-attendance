@@ -1,34 +1,74 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>スケジュール確認・回答</title>
-  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 text-gray-800 p-4">
+let currentLineUserId = "";
+let currentLineDisplayName = "";
 
-  <div class="max-w-md mx-auto">
-    <!-- ヘッダー / マイページ情報 -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h2 class="text-xl font-bold mb-2">スケジュール管理</h2>
-      <p id="user-status-info" class="font-medium text-sm text-gray-600">ユーザー情報を読み込み中...</p>
-    </div>
+window.onload = function() {
+  initializeScheduleApp();
+};
 
-    <!-- メッセージ表示用 -->
-    <div id="app-message-box" class="hidden mb-4 p-3 rounded text-sm"></div>
+async function initializeScheduleApp() {
+  try {
+    if (typeof CONFIG === 'undefined') {
+      showAppMessage("config.js が読み込まれていません。", "error");
+      return;
+    }
 
-    <!-- スケジュール機能領域 -->
-    <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-      <h3 class="text-lg font-bold mb-4">スケジュール一覧</h3>
-      <div id="schedule-content">
-        <p class="text-sm text-gray-500">スケジュールデータを読み込んでいます...</p>
-      </div>
-    </div>
-  </div>
+    await liff.init({ liffId: CONFIG.LIFF_ID });
+    
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
 
-  <script src="config.js"></script>
-  <script src="schedule.js"></script>
-</body>
-</html>
+    const profile = await liff.getProfile();
+    currentLineUserId = profile.userId;
+    currentLineDisplayName = profile.displayName || "LINEユーザー";
+
+    // サーバーからユーザーの登録情報・ステータスを取得して表示
+    await fetchAndDisplayUserInfo(currentLineUserId);
+
+    // スケジュール一覧の取得処理をここに記述
+    // loadSchedules();
+
+  } catch (err) {
+    console.error("スケジュール画面初期化エラー:", err);
+    showAppMessage("初期化に失敗しました: " + err.message, "error");
+  }
+}
+
+async function fetchAndDisplayUserInfo(lineUserId) {
+  try {
+    const url = `${CONFIG.GAS_WEB_APP_URL}?action=checkStatus&lineUserId=${encodeURIComponent(lineUserId)}`;
+    const response = await fetch(url);
+    const result = await response.json();
+
+    const statusInfo = document.getElementById("user-status-info");
+    if (result.status === "success") {
+      if (statusInfo) {
+        statusInfo.innerHTML = `
+          氏名: <span class="font-bold text-gray-800">${result.memberName || "未設定"}</span><br>
+          権限: <span class="font-bold text-gray-800">${result.role}</span>（${result.approvalStatus}）
+        `;
+      }
+    } else {
+      if (statusInfo) {
+        statusInfo.innerText = "ユーザー情報の取得に失敗しました。";
+      }
+    }
+  } catch (err) {
+    console.error("情報取得通信エラー:", err);
+  }
+}
+
+function showAppMessage(message, type = "error") {
+  const msgBox = document.getElementById("app-message-box");
+  if (!msgBox) return;
+
+  msgBox.innerHTML = `<span class="block">${message}</span>`;
+  msgBox.classList.remove("hidden");
+
+  if (type === "success") {
+    msgBox.className = "p-3 mb-4 rounded text-sm bg-green-100 text-green-700";
+  } else {
+    msgBox.className = "p-3 mb-4 rounded text-sm bg-red-100 text-red-700";
+  }
+}
